@@ -12,7 +12,8 @@
     "test": "node test/end-to-end-test.js",
     "test:lifecycle": "node test/reconnect-test.js",
     "test:stage1": "node test/stage1-test.js",
-    "test:stage2": "node test/stage2-test.js"
+    "test:stage2": "node test/stage2-test.js",
+    "test:stage3": "node test/stage3-test.js"
   },
   "dependencies": {
     "@google/genai": "^3.3.0",

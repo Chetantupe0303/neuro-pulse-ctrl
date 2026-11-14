@@ -1,36 +1,19 @@
-/* PulseCtrl - Laptop UI (Clean, Minimal, Utility-First) */
-:root {
-  --bg-color: #0d0f14;
-  --card-bg: #151821;
-  --card-border: #232734;
-  --text-main: #f3f4f6;
-  --text-muted: #8b92a5;
-  --text-subtle: #575e71;
-  --accent: #2563eb;
-  --accent-hover: #1d4ed8;
-  --surface-hover: #1c202c;
-  --status-connected: #22c55e;
-  --status-waiting: #eab308;
-  --status-disconnected: #ef4444;
-  --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-}
+/* PulseCtrl - Laptop UI (Operations Console Style)
+ * Strictly adheres to single-accent operations design system.
+ */
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+@import './design-system.css';
 
 body {
-  background-color: var(--bg-color);
-  color: var(--text-main);
-  font-family: var(--font-stack);
+  background-color: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 24px 16px;
+  padding: var(--space-6) var(--space-4);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -41,15 +24,15 @@ body {
 
 .header {
   text-align: center;
-  margin-bottom: 24px;
+  margin-bottom: var(--space-6);
 }
 
 .brand-title {
   font-size: 24px;
   font-weight: 600;
   letter-spacing: -0.4px;
-  color: #ffffff;
-  margin-bottom: 4px;
+  color: var(--text-primary);
+  margin-bottom: var(--space-1);
 }
 
 .brand-subtitle {
@@ -59,45 +42,49 @@ body {
 
 /* Card */
 .card {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: 12px;
-  padding: 32px 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-8) var(--space-6);
   text-align: center;
 }
 
-/* Status Indicator (Solid, non-animated) */
+/* Status Indicator (Neutral with single-accent indicator) */
 .status-pill {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  background: #10131a;
-  border: 1px solid var(--card-border);
+  gap: var(--space-2);
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
   padding: 6px 14px;
-  border-radius: 6px;
+  border-radius: var(--radius);
   font-size: 13px;
   font-weight: 500;
-  margin-bottom: 24px;
-  color: var(--text-main);
+  margin-bottom: var(--space-6);
+  color: var(--text-primary);
 }
 
 .status-dot {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background-color: var(--text-subtle);
+  border: 1px solid var(--border-strong);
 }
 
 .status-waiting .status-dot {
-  background-color: var(--status-waiting);
+  background-color: transparent;
+  border: 2px solid var(--text-muted);
 }
 
 .status-connected .status-dot {
-  background-color: var(--status-connected);
+  background-color: var(--accent);
+  border-color: var(--accent);
 }
 
 .status-disconnected .status-dot {
-  background-color: var(--status-disconnected);
+  background-color: var(--text-subtle);
+  border-color: var(--text-subtle);
 }
 
 /* QR Code Section */
@@ -105,13 +92,14 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: var(--space-6);
 }
 
 .qr-box {
   background: #ffffff;
   padding: 12px;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   display: inline-block;
   min-width: 240px;
   min-height: 240px;
@@ -124,17 +112,25 @@ body {
 }
 
 .qr-instruction {
-  margin-top: 14px;
+  margin-top: var(--space-3);
   font-size: 13px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   max-width: 320px;
   line-height: 1.5;
+}
+
+.qr-subinstruction {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: var(--space-2);
+  max-width: 320px;
+  line-height: 1.4;
 }
 
 /* Connected details */
 .connected-info {
   display: none;
-  margin-bottom: 24px;
+  margin-bottom: var(--space-6);
 }
 
 .connected-info.active {
@@ -143,62 +139,15 @@ body {
 
 .mode-badge {
   display: inline-block;
-  background: #1c202c;
-  border: 1px solid var(--card-border);
-  color: var(--text-main);
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
   padding: 6px 14px;
-  border-radius: 6px;
+  border-radius: var(--radius);
   font-size: 13px;
   font-weight: 500;
   letter-spacing: 0.2px;
-  margin-bottom: 12px;
-}
-
-/* Action Buttons */
-.btn {
-  background: #1c202c;
-  border: 1px solid var(--card-border);
-  color: var(--text-main);
-  padding: 9px 18px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.btn:hover {
-  background: #232736;
-}
-
-.btn:active {
-  background: #181b24;
-}
-
-.btn-danger {
-  border-color: #451a1a;
-  color: #fca5a5;
-  background: #1e1313;
-}
-
-.btn-danger:hover {
-  background: #2d1818;
-  color: #ffffff;
-}
-
-.btn-primary {
-  background: var(--accent);
-  border: 1px solid var(--accent);
-  color: #ffffff;
-}
-
-.btn-primary:hover {
-  background: var(--accent-hover);
-}
-
-.btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+  margin-bottom: var(--space-3);
 }
 
 /* Modal Overlay: "Allow this device?" */
@@ -209,11 +158,11 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.6);
   z-index: 999;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: var(--space-4);
 }
 
 .modal-overlay.active {
@@ -221,10 +170,10 @@ body {
 }
 
 .modal-card {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: 10px;
-  padding: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: var(--space-6);
   max-width: 400px;
   width: 100%;
   text-align: left;
@@ -233,34 +182,30 @@ body {
 .modal-title {
   font-size: 18px;
   font-weight: 600;
-  margin-bottom: 8px;
-  color: #ffffff;
+  margin-bottom: var(--space-2);
+  color: var(--text-primary);
 }
 
 .modal-desc {
   font-size: 13px;
-  color: var(--text-muted);
-  margin-bottom: 16px;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-4);
   line-height: 1.5;
 }
 
 .device-details {
-  background: #0f1218;
-  border: 1px solid var(--card-border);
-  border-radius: 6px;
-  padding: 12px;
-  margin-bottom: 20px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+  margin-bottom: var(--space-5);
   font-size: 12px;
-  color: #cbd5e1;
+  color: var(--text-secondary);
   word-break: break-all;
 }
 
 .modal-actions {
   display: flex;
-  gap: 10px;
+  gap: var(--space-3);
   justify-content: flex-end;
-}
-
-.modal-actions .btn {
-  padding: 8px 16px;
 }
