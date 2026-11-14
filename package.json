@@ -11,7 +11,8 @@
     "dev": "concurrently -k \"npm run start:server\" \"npm run start:helper\"",
     "test": "node test/end-to-end-test.js",
     "test:lifecycle": "node test/reconnect-test.js",
-    "test:stage1": "node test/stage1-test.js"
+    "test:stage1": "node test/stage1-test.js",
+    "test:stage2": "node test/stage2-test.js"
   },
   "dependencies": {
     "@google/genai": "^3.3.0",
@@ -19,6 +20,7 @@
     "dotenv": "^18.0.10",
     "express": "^4.22.3",
     "qrcode": "^1.5.4",
+    "selfsigned": "^5.5.0",
     "ws": "^8.22.2"
   },
   "devDependencies": {

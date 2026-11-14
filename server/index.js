@@ -1,6 +1,7 @@
 /** Local HTTP and WebSocket server for PulseCtrl. */
 
 const http = require('http');
+const https = require('https');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
@@ -10,11 +11,21 @@ const QRCode = require('qrcode');
 const config = require('./config');
 const { SessionManager } = require('./session');
 const { validateMessage } = require('./validator');
+const { getOrCreateSslCredentials, getSyncSslCredentials } = require('./ssl');
 
 const DEFAULT_PORT = config.port;
 const HOST = config.host;
 const app = express();
-const server = http.createServer(app);
+
+const initialSslCreds = config.httpsEnabled ? getSyncSslCredentials(null, {
+  keyPath: config.sslKeyPath,
+  certPath: config.sslCertPath
+}) : null;
+
+const server = config.httpsEnabled
+  ? https.createServer(initialSslCreds || {}, app)
+  : http.createServer(app);
+
 const wss = new WebSocketServer({ server, path: '/ws' });
 const sessionManager = new SessionManager();
 let activePort = DEFAULT_PORT;
@@ -55,7 +66,8 @@ function getLocalIpAddress() {
 }
 
 async function generateQrForSession(session) {
-  const phoneUrl = `http://${getLocalIpAddress()}:${activePort}/phone?session=${encodeURIComponent(session.id)}&token=${encodeURIComponent(session.token)}`;
+  const protocol = config.httpsEnabled ? 'https' : 'http';
+  const phoneUrl = `${protocol}://${getLocalIpAddress()}:${activePort}/phone?session=${encodeURIComponent(session.id)}&token=${encodeURIComponent(session.token)}`;
   const qrDataUrl = await QRCode.toDataURL(phoneUrl, {
     width: 280,
     margin: 2,
@@ -105,7 +117,14 @@ app.get('/', (_req, res) => res.sendFile(path.join(webDir, 'index.html')));
 app.get('/phone', (_req, res) => res.sendFile(path.join(webDir, 'phone.html')));
 app.get('/api/info', (_req, res) => {
   const lanIp = getLocalIpAddress();
-  res.json({ lanIp, port: activePort, localUrl: `http://localhost:${activePort}`, lanUrl: `http://${lanIp}:${activePort}` });
+  const protocol = config.httpsEnabled ? 'https' : 'http';
+  res.json({
+    lanIp,
+    port: activePort,
+    protocol,
+    localUrl: `${protocol}://localhost:${activePort}`,
+    lanUrl: `${protocol}://${lanIp}:${activePort}`
+  });
 });
 app.get('/api/health', (_req, res) => {
   let activeSession = null;
@@ -118,6 +137,7 @@ app.get('/api/health', (_req, res) => {
 
   res.json({
     status: 'ok',
+    httpsEnabled: config.httpsEnabled,
     geminiConfigured: config.isGeminiConfigured,
     model: config.geminiModel,
     helperConnected: Boolean(activeSession),
@@ -265,15 +285,26 @@ function bindPhoneEventHandlers(ws, session) {
 
 if (require.main === module) {
   (async () => {
+    const lanIp = getLocalIpAddress();
     activePort = await findAvailablePort(DEFAULT_PORT);
 
+    if (config.httpsEnabled) {
+      const creds = await getOrCreateSslCredentials(lanIp, {
+        keyPath: config.sslKeyPath,
+        certPath: config.sslCertPath
+      });
+      if (server.setSecureContext) {
+        server.setSecureContext({ key: creds.key, cert: creds.cert });
+      }
+    }
+
     server.listen(activePort, HOST, () => {
-      const lanIp = getLocalIpAddress();
+      const protocol = config.httpsEnabled ? 'https' : 'http';
       console.log('');
       console.log('='.repeat(55));
-      console.log('  ⚡ PulseCtrl Server is running!');
-      console.log(`  Local:   http://localhost:${activePort}`);
-      console.log(`  Network: http://${lanIp}:${activePort}`);
+      console.log(`  ⚡ PulseCtrl Server is running (${protocol.toUpperCase()})!`);
+      console.log(`  Local:   ${protocol}://localhost:${activePort}`);
+      console.log(`  Network: ${protocol}://${lanIp}:${activePort}`);
       console.log('='.repeat(55));
       console.log('');
 
@@ -283,8 +314,9 @@ if (require.main === module) {
           JSON.stringify({
             port: activePort,
             lanIp,
-            localUrl: `http://localhost:${activePort}`,
-            lanUrl: `http://${lanIp}:${activePort}`,
+            protocol,
+            localUrl: `${protocol}://localhost:${activePort}`,
+            lanUrl: `${protocol}://${lanIp}:${activePort}`,
             updatedAt: Date.now()
           }, null, 2),
           'utf8'
@@ -294,4 +326,13 @@ if (require.main === module) {
   })();
 }
 
-module.exports = { app, server, sessionManager, getLocalIpAddress, generateQrForSession, config };
+module.exports = {
+  app,
+  server,
+  sessionManager,
+  getLocalIpAddress,
+  generateQrForSession,
+  config,
+  getOrCreateSslCredentials,
+  getSyncSslCredentials
+};

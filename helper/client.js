@@ -8,16 +8,27 @@ const { executeEvent } = require('./executor');
 
 const INPUT_TYPES = new Set(['move', 'click', 'scroll', 'text', 'key']);
 
-function resolvePort() {
-  if (process.env.PORT) return Number(process.env.PORT);
+function readPulseConfig() {
   try {
     const configPath = path.join(__dirname, '..', '.pulse-config.json');
     if (fs.existsSync(configPath)) {
-      const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-      if (config.port) return Number(config.port);
+      return JSON.parse(fs.readFileSync(configPath, 'utf8'));
     }
   } catch (_) {}
+  return {};
+}
+
+function resolvePort() {
+  if (process.env.PORT) return Number(process.env.PORT);
+  const cfg = readPulseConfig();
+  if (cfg.port) return Number(cfg.port);
   return 3000;
+}
+
+function resolveProtocol() {
+  if (process.env.ENABLE_HTTPS === 'false') return 'http';
+  const cfg = readPulseConfig();
+  return cfg.protocol || 'https';
 }
 
 class PulseHelperClient extends EventEmitter {
@@ -30,18 +41,27 @@ class PulseHelperClient extends EventEmitter {
     this.reconnectTimer = null;
     this.isDestroyed = false;
     this.port = resolvePort();
+    this.protocol = resolveProtocol();
   }
 
   get socketUrl() {
+    const wsProto = this.protocol === 'https' ? 'wss:' : 'ws:';
     const osParam = encodeURIComponent(process.platform);
-    return `ws://localhost:${this.port}/ws?role=helper&os=${osParam}`;
+    return `${wsProto}//localhost:${this.port}/ws?role=helper&os=${osParam}`;
+  }
+
+  get httpProtocol() {
+    return this.protocol === 'https' ? 'https:' : 'http:';
   }
 
   connect() {
     if (this.isDestroyed || this.ws) return;
     this.port = resolvePort();
-    console.log(`[Helper] Connecting to local server at ws://localhost:${this.port}...`);
-    const ws = new WebSocket(this.socketUrl);
+    this.protocol = resolveProtocol();
+    console.log(`[Helper] Connecting to local server at ${this.socketUrl}...`);
+    const ws = new WebSocket(this.socketUrl, {
+      rejectUnauthorized: false
+    });
     this.ws = ws;
     ws.on('open', () => {
       this.emit('status', { status: 'connected' });
@@ -72,7 +92,7 @@ class PulseHelperClient extends EventEmitter {
       this.currentSessionId = msg.sessionId;
       const session = {
         ...msg,
-        webUrl: `http://localhost:${this.port}/?session=${encodeURIComponent(msg.sessionId)}&approval=${encodeURIComponent(msg.approvalToken)}`
+        webUrl: `${this.httpProtocol}//localhost:${this.port}/?session=${encodeURIComponent(msg.sessionId)}&approval=${encodeURIComponent(msg.approvalToken)}`
       };
       this.emit('session_ready', session);
     } else if (msg.type === 'paired') {

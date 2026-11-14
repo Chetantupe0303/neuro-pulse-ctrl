@@ -27,7 +27,10 @@ const config = {
   geminiModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
   get isGeminiConfigured() {
     return Boolean(this.geminiApiKey && this.geminiApiKey.trim().length > 0);
-  }
+  },
+  httpsEnabled: process.env.ENABLE_HTTPS !== 'false',
+  sslKeyPath: process.env.SSL_KEY_PATH || '',
+  sslCertPath: process.env.SSL_CERT_PATH || ''
 };
 
 module.exports = config;
