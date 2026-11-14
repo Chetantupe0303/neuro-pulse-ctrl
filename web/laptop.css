@@ -1,0 +1,266 @@
+/* PulseCtrl - Laptop UI (Clean, Minimal, Utility-First) */
+:root {
+  --bg-color: #0d0f14;
+  --card-bg: #151821;
+  --card-border: #232734;
+  --text-main: #f3f4f6;
+  --text-muted: #8b92a5;
+  --text-subtle: #575e71;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --surface-hover: #1c202c;
+  --status-connected: #22c55e;
+  --status-waiting: #eab308;
+  --status-disconnected: #ef4444;
+  --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  font-family: var(--font-stack);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.container {
+  width: 100%;
+  max-width: 480px;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.brand-title {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.4px;
+  color: #ffffff;
+  margin-bottom: 4px;
+}
+
+.brand-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Card */
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 32px 24px;
+  text-align: center;
+}
+
+/* Status Indicator (Solid, non-animated) */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #10131a;
+  border: 1px solid var(--card-border);
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 24px;
+  color: var(--text-main);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--text-subtle);
+}
+
+.status-waiting .status-dot {
+  background-color: var(--status-waiting);
+}
+
+.status-connected .status-dot {
+  background-color: var(--status-connected);
+}
+
+.status-disconnected .status-dot {
+  background-color: var(--status-disconnected);
+}
+
+/* QR Code Section */
+.qr-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.qr-box {
+  background: #ffffff;
+  padding: 12px;
+  border-radius: 8px;
+  display: inline-block;
+  min-width: 240px;
+  min-height: 240px;
+}
+
+.qr-box img {
+  display: block;
+  width: 240px;
+  height: 240px;
+}
+
+.qr-instruction {
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--text-muted);
+  max-width: 320px;
+  line-height: 1.5;
+}
+
+/* Connected details */
+.connected-info {
+  display: none;
+  margin-bottom: 24px;
+}
+
+.connected-info.active {
+  display: block;
+}
+
+.mode-badge {
+  display: inline-block;
+  background: #1c202c;
+  border: 1px solid var(--card-border);
+  color: var(--text-main);
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  margin-bottom: 12px;
+}
+
+/* Action Buttons */
+.btn {
+  background: #1c202c;
+  border: 1px solid var(--card-border);
+  color: var(--text-main);
+  padding: 9px 18px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btn:hover {
+  background: #232736;
+}
+
+.btn:active {
+  background: #181b24;
+}
+
+.btn-danger {
+  border-color: #451a1a;
+  color: #fca5a5;
+  background: #1e1313;
+}
+
+.btn-danger:hover {
+  background: #2d1818;
+  color: #ffffff;
+}
+
+.btn-primary {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Modal Overlay: "Allow this device?" */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 999;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modal-overlay.active {
+  display: flex;
+}
+
+.modal-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  padding: 24px;
+  max-width: 400px;
+  width: 100%;
+  text-align: left;
+}
+
+.modal-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #ffffff;
+}
+
+.modal-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.device-details {
+  background: #0f1218;
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 20px;
+  font-size: 12px;
+  color: #cbd5e1;
+  word-break: break-all;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.modal-actions .btn {
+  padding: 8px 16px;
+}

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PulseCtrl — Local Wireless Trackpad</title>
+  <link rel="stylesheet" href="laptop.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1 class="brand-title">PulseCtrl</h1>
+      <p class="brand-subtitle">Local wireless trackpad and keyboard</p>
+    </header>
+    <main class="card">
+      <div id="statusPill" class="status-pill status-waiting">
+        <span class="status-dot"></span><span id="statusText">Waiting for local helper</span>
+      </div>
+      <div id="helperNotice" style="display:none; margin-bottom:24px; text-align:center; color:var(--text-muted); line-height:1.6">
+        Start the server and helper on this laptop with <code>npm run dev</code>, or use <code>npm run start:server</code> and <code>npm run start:helper</code> in separate terminals.
+      </div>
+      <div id="qrSection" class="qr-container" style="display:none">
+        <div class="qr-box"><img id="qrImage" src="" alt="Local pairing QR code"></div>
+        <p class="qr-instruction">Scan with your phone while it is connected to the same Wi-Fi network.</p>
+      </div>
+      <div id="connectedSection" class="connected-info">
+        <p style="font-size:14px; margin-bottom:6px">Connected device: <strong id="connectedDeviceName">Phone</strong></p>
+        <div id="activeModeBadge" class="mode-badge">Mode: Mousepad</div>
+        <p style="font-size:13px; color:var(--text-muted); margin-bottom:20px">Use your phone to move, click, scroll, and type.</p>
+      </div>
+      <div style="display:flex; gap:8px; justify-content:center">
+        <button id="btnNewQR" class="btn">New QR Code</button>
+        <button id="disconnectBtn" class="btn btn-danger" disabled>Disconnect</button>
+      </div>
+    </main>
+  </div>
+  <div id="allowModal" class="modal-overlay">
+    <div class="modal-card">
+      <h2 class="modal-title">Allow this device?</h2>
+      <p class="modal-desc">Allow <strong id="modalDeviceName">Mobile Device</strong> to control this laptop?</p>
+      <div class="modal-actions">
+        <button id="denyBtn" class="btn btn-danger">Deny</button>
+        <button id="allowBtn" class="btn btn-primary">Allow</button>
+      </div>
+    </div>
+  </div>
+  <script src="laptop.js"></script>
+</body>
+</html>
