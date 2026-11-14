@@ -1,55 +1,67 @@
-/* PulseCtrl - Laptop UI (Operations Console Style)
+/* PulseCtrl - Laptop Operations Console
  * Strictly adheres to single-accent operations design system.
  */
 
 @import './design-system.css';
 
-body {
+html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
   background-color: var(--bg);
   color: var(--text-primary);
   font-family: var(--font-sans);
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-6) var(--space-4);
+  overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
 }
 
-.container {
+.console-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
   width: 100%;
-  max-width: 480px;
 }
 
-.header {
-  text-align: center;
-  margin-bottom: var(--space-6);
+/* Operations Top Bar */
+.console-header {
+  height: 60px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-6);
+  flex-shrink: 0;
+  z-index: 20;
+}
+
+.brand-group {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
 }
 
 .brand-title {
-  font-size: 24px;
-  font-weight: 600;
+  font-size: 20px;
+  font-weight: 700;
   letter-spacing: -0.4px;
   color: var(--text-primary);
-  margin-bottom: var(--space-1);
 }
 
-.brand-subtitle {
-  font-size: 13px;
+.console-tag {
+  font-size: 11px;
+  font-weight: 600;
   color: var(--text-muted);
+  letter-spacing: 0.8px;
 }
 
-/* Card */
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: var(--space-8) var(--space-6);
-  text-align: center;
+.header-status-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
 }
 
-/* Status Indicator (Neutral with single-accent indicator) */
 .status-pill {
   display: inline-flex;
   align-items: center;
@@ -58,10 +70,9 @@ body {
   border: 1px solid var(--border);
   padding: 6px 14px;
   border-radius: var(--radius);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
-  margin-bottom: var(--space-6);
-  color: var(--text-primary);
+  color: var(--text-secondary);
 }
 
 .status-dot {
@@ -69,7 +80,7 @@ body {
   height: 8px;
   border-radius: var(--radius-full);
   background-color: var(--text-subtle);
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--border);
 }
 
 .status-waiting .status-dot {
@@ -83,71 +94,265 @@ body {
 }
 
 .status-disconnected .status-dot {
-  background-color: var(--text-subtle);
-  border-color: var(--text-subtle);
+  background-color: var(--border-strong);
+  border-color: var(--border-strong);
 }
 
-/* QR Code Section */
+/* 3-Column Operations Grid */
+.console-grid {
+  display: grid;
+  grid-template-columns: 320px minmax(360px, 1fr) 340px;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  flex: 1;
+  min-height: calc(100vh - 60px);
+  box-sizing: border-box;
+}
+
+@media (max-width: 1080px) {
+  .console-grid {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+}
+
+.console-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.col-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.card-header {
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.header-with-badge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.card-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.badge-counter {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+}
+
+/* 1. Left Column: Session & Device */
+.col-session {
+  text-align: center;
+}
+
+.helper-notice {
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+  margin-bottom: var(--space-4);
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  text-align: left;
+}
+
 .qr-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-4);
 }
 
 .qr-box {
   background: #ffffff;
-  padding: 12px;
+  padding: 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   display: inline-block;
-  min-width: 240px;
-  min-height: 240px;
 }
 
 .qr-box img {
   display: block;
-  width: 240px;
-  height: 240px;
+  width: 220px;
+  height: 220px;
 }
 
 .qr-instruction {
   margin-top: var(--space-3);
   font-size: 13px;
   color: var(--text-secondary);
-  max-width: 320px;
-  line-height: 1.5;
-}
-
-.qr-subinstruction {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-top: var(--space-2);
-  max-width: 320px;
   line-height: 1.4;
 }
 
-/* Connected details */
+.qr-subinstruction {
+  margin-top: var(--space-2);
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
 .connected-info {
   display: none;
-  margin-bottom: var(--space-6);
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  text-align: left;
 }
 
 .connected-info.active {
-  display: block;
+  display: flex;
+}
+
+.device-card {
+  padding: var(--space-3);
+}
+
+.device-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.meta-label {
+  color: var(--text-muted);
+}
+
+.meta-value {
+  color: var(--text-primary);
 }
 
 .mode-badge {
-  display: inline-block;
-  background: var(--surface-subtle);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--surface);
   border: 1px solid var(--border);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.connected-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.session-actions {
+  margin-top: auto;
+  padding-top: var(--space-3);
+}
+
+/* 2. Centre Column: Activity Timeline */
+.timeline-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  min-height: 280px;
+}
+
+.timeline-empty-state,
+.guardian-empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6) var(--space-4);
+  text-align: center;
+  gap: var(--space-2);
+}
+
+.empty-icon {
+  width: 36px;
+  height: 36px;
+  color: var(--text-subtle);
+  margin-bottom: var(--space-1);
+}
+
+.empty-title {
+  font-size: 14px;
+  font-weight: 600;
   color: var(--text-primary);
-  padding: 6px 14px;
-  border-radius: var(--radius);
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0.2px;
-  margin-bottom: var(--space-3);
+}
+
+.empty-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  max-width: 300px;
+}
+
+.timeline-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* 3. Right Column: AI Guardian */
+.guardian-policy {
+  margin-bottom: var(--space-4);
+  padding: var(--space-3);
+}
+
+.policy-headline {
+  margin-bottom: var(--space-2);
+}
+
+.status-legend-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.legend-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.guardian-panel-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  min-height: 200px;
 }
 
 /* Modal Overlay: "Allow this device?" */
@@ -159,7 +364,7 @@ body {
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.6);
-  z-index: 999;
+  z-index: 1000;
   align-items: center;
   justify-content: center;
   padding: var(--space-4);
@@ -189,19 +394,8 @@ body {
 .modal-desc {
   font-size: 13px;
   color: var(--text-secondary);
-  margin-bottom: var(--space-4);
-  line-height: 1.5;
-}
-
-.device-details {
-  background: var(--surface-subtle);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: var(--space-3);
   margin-bottom: var(--space-5);
-  font-size: 12px;
-  color: var(--text-secondary);
-  word-break: break-all;
+  line-height: 1.5;
 }
 
 .modal-actions {

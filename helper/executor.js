@@ -5,6 +5,147 @@
  */
 
 const { mouse, keyboard, Button, Key, Point } = require('@nut-tree/nut-js');
+const child_process = require('child_process');
+
+// Hardcoded safe application launch definitions per platform
+const APP_LAUNCHERS = {
+  win32: {
+    calculator: { cmd: 'calc.exe', args: [] },
+    notepad: { cmd: 'notepad.exe', args: [] },
+    explorer: { cmd: 'explorer.exe', args: [] },
+    chrome: { cmd: 'cmd.exe', args: ['/c', 'start', 'chrome'] },
+    edge: { cmd: 'cmd.exe', args: ['/c', 'start', 'msedge'] },
+    vscode: { cmd: 'code.cmd', args: [], shell: true }
+  },
+  darwin: {
+    calculator: { cmd: 'open', args: ['-a', 'Calculator'] },
+    notepad: { cmd: 'open', args: ['-a', 'TextEdit'] },
+    finder: { cmd: 'open', args: ['-a', 'Finder'] },
+    explorer: { cmd: 'open', args: ['-a', 'Finder'] },
+    chrome: { cmd: 'open', args: ['-a', 'Google Chrome'] },
+    edge: { cmd: 'open', args: ['-a', 'Microsoft Edge'] },
+    vscode: { cmd: 'open', args: ['-a', 'Visual Studio Code'] }
+  },
+  linux: {
+    calculator: { cmd: 'gnome-calculator', args: [] },
+    notepad: { cmd: 'gedit', args: [] },
+    finder: { cmd: 'xdg-open', args: [process.env.HOME || '/'] },
+    explorer: { cmd: 'xdg-open', args: [process.env.HOME || '/'] },
+    chrome: { cmd: 'google-chrome', args: [] },
+    edge: { cmd: 'microsoft-edge', args: [] },
+    vscode: { cmd: 'code', args: [] }
+  }
+};
+
+/**
+ * Safely launch an allowlisted application
+ * @param {string} appName
+ * @param {string} [platform]
+ */
+function launchApp(appName, platform = process.platform) {
+  const normApp = String(appName || '').toLowerCase().trim();
+  const osTable = APP_LAUNCHERS[platform] || APP_LAUNCHERS.win32;
+  const launcher = osTable[normApp];
+
+  if (!launcher) {
+    throw new Error(`Application "${normApp}" is not allowlisted for platform "${platform}".`);
+  }
+
+  try {
+    const child = child_process.spawn(launcher.cmd, launcher.args, {
+      detached: true,
+      stdio: 'ignore',
+      shell: launcher.shell || false
+    });
+    child.unref();
+    return { success: true, app: normApp };
+  } catch (err) {
+    throw new Error(`Failed to launch ${normApp}: ${err.message}`);
+  }
+}
+
+/**
+ * Execute a single validated PulseCtrl AI plan step
+ * @param {Object} step
+ * @returns {Promise<{ success: boolean }>}
+ */
+async function executeStep(step) {
+  if (!step || typeof step !== 'object') {
+    throw new Error('Invalid step object provided.');
+  }
+
+  const { tool, args = {} } = step;
+
+  switch (tool) {
+    case 'open_app': {
+      return launchApp(args.app);
+    }
+
+    case 'wait': {
+      const ms = Math.min(10000, Math.max(50, Number(args.durationMs) || 1000));
+      await new Promise(resolve => setTimeout(resolve, ms));
+      return { success: true, waitedMs: ms };
+    }
+
+    case 'type_text': {
+      if (typeof args.text === 'string' && args.text.length > 0) {
+        await keyboard.type(args.text);
+      }
+      return { success: true };
+    }
+
+    case 'press_key': {
+      const rawKey = (args.key || '').toLowerCase();
+      const nutKey = KEY_MAP[rawKey];
+      const modifiers = Array.isArray(args.modifiers) ? args.modifiers : [];
+
+      const modsToPress = [];
+      for (const mod of modifiers) {
+        const modKey = MODIFIER_MAP[mod.toLowerCase()];
+        if (modKey !== undefined) modsToPress.push(modKey);
+      }
+
+      for (const modKey of modsToPress) {
+        await keyboard.pressKey(modKey);
+      }
+
+      if (nutKey !== undefined) {
+        await keyboard.pressKey(nutKey);
+        await keyboard.releaseKey(nutKey);
+      } else if (args.key.length === 1) {
+        await keyboard.type(args.key);
+      }
+
+      for (let i = modsToPress.length - 1; i >= 0; i--) {
+        await keyboard.releaseKey(modsToPress[i]);
+      }
+      return { success: true };
+    }
+
+    case 'click': {
+      const btn = args.button === 'right' ? Button.RIGHT : (args.button === 'middle' ? Button.MIDDLE : Button.LEFT);
+      if (args.double) {
+        await mouse.leftClick();
+        await mouse.leftClick();
+      } else if (args.button === 'right') {
+        await mouse.rightClick();
+      } else {
+        await mouse.leftClick();
+      }
+      return { success: true };
+    }
+
+    case 'move_mouse': {
+      const x = Math.round(Number(args.x) || 0);
+      const y = Math.round(Number(args.y) || 0);
+      await mouse.setPosition(new Point(x, y));
+      return { success: true };
+    }
+
+    default:
+      throw new Error(`Unknown step tool: ${tool}`);
+  }
+}
 
 // Eliminate artificial delays to ensure ultra-smooth 60fps tracking
 mouse.config.autoDelayMs = 0;
@@ -231,6 +372,9 @@ async function executeEvent(event, currentMode = 'trackpad') {
 
 module.exports = {
   executeEvent,
+  executeStep,
+  launchApp,
+  APP_LAUNCHERS,
   isPermittedInMode,
   KEY_MAP,
   MODIFIER_MAP

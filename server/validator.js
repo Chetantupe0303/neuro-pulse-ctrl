@@ -41,6 +41,18 @@ function validateMessage(msg, currentMode = 'trackpad') {
     return { valid: true, sanitized: { type: 'disconnect' } };
   }
 
+  // 3. AI events (allowed for paired devices)
+  if (type === 'ai_command') {
+    if (typeof msg.command !== 'string' || !msg.command.trim()) {
+      return { valid: false, error: 'AI command must be a non-empty string' };
+    }
+    return { valid: true, sanitized: { type: 'ai_command', command: msg.command.trim().slice(0, 500) } };
+  }
+
+  if (type === 'ai_stop') {
+    return { valid: true, sanitized: { type: 'ai_stop' } };
+  }
+
   // Check if current event type is permitted under active mode
   if (currentMode === 'trackpad') {
     if (type !== 'move' && type !== 'click' && type !== 'scroll') {

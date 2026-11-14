@@ -1,4 +1,4 @@
-/* PulseCtrl - Phone Mobile UI
+/* PulseCtrl - Phone Mobile UI (Operations Console Style)
  * Strictly adheres to single-accent operations design system.
  */
 
@@ -28,7 +28,7 @@ html, body {
 
 /* Header */
 .phone-header {
-  height: 48px;
+  height: 52px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   display: flex;
@@ -36,7 +36,13 @@ html, body {
   justify-content: space-between;
   padding: 0 var(--space-3);
   flex-shrink: 0;
-  z-index: 10;
+  z-index: 20;
+}
+
+.brand-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .brand-title {
@@ -46,22 +52,28 @@ html, body {
   color: var(--text-primary);
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .status-pill {
   display: flex;
   align-items: center;
   gap: var(--space-1);
   background: var(--surface-subtle);
   border: 1px solid var(--border);
-  padding: 4px 10px;
+  padding: 4px 8px;
   border-radius: var(--radius-sm);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--text-secondary);
 }
 
 .status-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: var(--radius-full);
   background-color: var(--text-subtle);
   border: 1px solid var(--border);
@@ -69,7 +81,7 @@ html, body {
 
 .status-waiting .status-dot {
   background-color: transparent;
-  border: 2px solid var(--text-muted);
+  border: 1.5px solid var(--text-muted);
 }
 
 .status-connected .status-dot {
@@ -82,45 +94,24 @@ html, body {
   border-color: var(--border-strong);
 }
 
-/* Destructive Disconnect Button */
+/* Inverted Destructive Disconnect Button */
 .btn-header-disconnect {
   background: var(--destructive-bg);
   border: 1px solid var(--destructive-border);
   color: var(--destructive-text);
-  font-size: 11px;
-  padding: 5px 12px;
+  font-size: 12px;
+  padding: 6px 14px;
   border-radius: var(--radius-sm);
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
-  min-height: 32px;
+  min-height: 36px;
   transition: background var(--transition);
 }
 
 .btn-header-disconnect:hover,
 .btn-header-disconnect:active {
   background: var(--destructive-hover);
-}
-
-/* 2-Mode Segmented Switcher & Tools Toggle */
-.mode-segmented-wrap {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 6px var(--space-3);
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.segmented-control {
-  flex: 1;
-  display: flex;
-  background: var(--surface-subtle);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 2px;
-  gap: 2px;
 }
 
 .btn-header-tools {
@@ -133,7 +124,7 @@ html, body {
   font-size: 11px;
   font-weight: 600;
   padding: 6px 10px;
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-family: inherit;
   flex-shrink: 0;
@@ -153,7 +144,7 @@ html, body {
   border-bottom: 1px solid var(--border);
   padding: var(--space-2) var(--space-3);
   flex-shrink: 0;
-  z-index: 5;
+  z-index: 15;
 }
 
 .quick-tool-row {
@@ -191,8 +182,8 @@ html, body {
 .sensitivity-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: var(--accent);
   border: 2px solid var(--surface);
@@ -200,8 +191,8 @@ html, body {
 }
 
 .sensitivity-slider::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: var(--accent);
   border: 2px solid var(--surface);
@@ -237,8 +228,8 @@ html, body {
   color: var(--text-primary);
   font-size: 14px;
   font-weight: bold;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   display: flex;
@@ -292,7 +283,7 @@ html, body {
   overflow: hidden;
   text-overflow: ellipsis;
   text-align: center;
-  min-height: 36px;
+  min-height: 40px;
   transition: background var(--transition);
 }
 
@@ -313,50 +304,13 @@ html, body {
   border-color: var(--destructive-border);
 }
 
-/* Drag Button Styling */
-.btn-drag {
-  position: relative;
-  transition: background var(--transition), color var(--transition);
-}
-
-.btn-drag.active {
-  background: var(--accent) !important;
-  color: #ffffff !important;
-  font-weight: 700;
-  border-color: var(--accent) !important;
-}
-
-.tab-btn {
-  flex: 1;
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--text-muted);
-  font-size: 13px;
-  font-weight: 500;
-  padding: 8px 0;
-  border-radius: calc(var(--radius) - 2px);
-  cursor: pointer;
-  font-family: inherit;
-  transition: background var(--transition), color var(--transition);
-  text-align: center;
-  min-height: 40px;
-}
-
-.tab-btn.active {
-  background: var(--surface);
-  border-color: var(--border);
-  color: var(--accent);
-  font-weight: 600;
-}
-
-/* Content Area */
+/* Content Area & Transitions */
 .content-area {
   flex: 1;
   display: flex;
   flex-direction: column;
   position: relative;
   overflow: hidden;
-  height: calc(100% - 94px);
 }
 
 .view-panel {
@@ -364,13 +318,18 @@ html, body {
   width: 100%;
   height: 100%;
   flex-direction: column;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 150ms ease, transform 150ms ease;
 }
 
 .view-panel.active {
   display: flex;
+  opacity: 1;
+  transform: translateY(0);
 }
 
-/* Mousepad Layout (Mode 1) */
+/* 1. Trackpad Mode */
 .mousepad-full-container {
   flex: 1;
   display: flex;
@@ -414,14 +373,18 @@ html, body {
   line-height: 1.6;
 }
 
-/* Physical Click Buttons Bar */
+/* Click Buttons Bar */
 .click-bar {
   display: flex;
-  height: 54px;
+  height: 56px;
   background: var(--surface);
   border-top: 1px solid var(--border);
   gap: 1px;
   flex-shrink: 0;
+}
+
+.click-bar-compact {
+  height: 48px;
 }
 
 .btn-click {
@@ -452,37 +415,32 @@ html, body {
   background: var(--surface-hover);
 }
 
-/* Both Mode Layout (Mode 2) */
-.both-container {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  width: 100%;
-  overflow: hidden;
-}
-
-.both-trackpad-half {
-  flex: 1.1;
-  display: flex;
-  flex-direction: column;
-  min-height: 160px;
+.btn-drag {
   position: relative;
-  border-bottom: 1px solid var(--border);
+  transition: background var(--transition), color var(--transition);
 }
 
-.both-controls-half {
+.btn-drag.active {
+  background: var(--accent) !important;
+  color: #ffffff !important;
+  font-weight: 700;
+}
+
+/* 2. Keyboard Panel */
+.keyboard-full-container {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: var(--bg);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-3);
+  gap: var(--space-3);
   overflow-y: auto;
-  gap: var(--space-2);
-  flex-shrink: 0;
+  background: var(--bg);
 }
 
-/* Typing Row: Show Keyboard First */
+.typing-section {
+  padding: var(--space-2);
+}
+
 .typing-row {
   display: flex;
   gap: var(--space-2);
@@ -499,7 +457,7 @@ html, body {
   color: var(--text-primary);
   font-family: inherit;
   outline: none;
-  min-height: 44px;
+  min-height: 48px;
 }
 
 .typing-input:focus {
@@ -511,37 +469,21 @@ html, body {
 }
 
 .btn-type-action {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  color: var(--text-primary);
-  padding: 0 var(--space-3);
-  border-radius: var(--radius);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  font-family: inherit;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  min-height: 48px;
+  padding: 0 var(--space-4);
+  font-size: 13px;
   white-space: nowrap;
-  min-height: 44px;
-  transition: background var(--transition);
 }
 
-.btn-type-action:active {
-  background: var(--surface-hover);
-}
-
-/* Keypad Grids */
-.keys-section {
+.keyboard-keys-container {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
 }
 
 .key-row {
   display: flex;
-  gap: var(--space-1);
+  gap: var(--space-2);
   width: 100%;
 }
 
@@ -551,8 +493,8 @@ html, body {
   border: 1px solid var(--border);
   color: var(--text-primary);
   border-radius: var(--radius-sm);
-  padding: 10px 4px;
-  font-size: 12px;
+  padding: 12px 6px;
+  font-size: 13px;
   font-weight: 500;
   display: flex;
   align-items: center;
@@ -560,7 +502,7 @@ html, body {
   cursor: pointer;
   font-family: inherit;
   touch-action: manipulation;
-  min-height: 44px;
+  min-height: 48px;
   transition: background var(--transition), border-color var(--transition);
 }
 
@@ -577,17 +519,407 @@ html, body {
 
 .key-arrow {
   font-weight: 600;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .key-span-2 {
   flex: 2;
 }
 
-/* Fullscreen Overlay Messages (Minimal, Solid, Non-animated) */
+/* 3. Both Mode */
+.both-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+.both-trackpad-half {
+  flex: 1.1;
+  display: flex;
+  flex-direction: column;
+  min-height: 150px;
+  position: relative;
+  border-bottom: 1px solid var(--border);
+}
+
+.both-controls-half {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  padding: var(--space-2) var(--space-3);
+  overflow-y: auto;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+/* 4. AI Tab Placeholder */
+.ai-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: var(--bg);
+  overflow-y: auto;
+}
+
+.ai-card {
+  max-width: 420px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.ai-header-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.ai-tagline-text {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  line-height: 1.4;
+}
+
+/* Signature Element: Pulse Trace */
+.pulse-trace-box {
+  width: 100%;
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.pulse-trace-canvas-wrap {
+  width: 100%;
+  height: 48px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pulse-trace-svg {
+  width: 100%;
+  height: 48px;
+  display: block;
+}
+
+.pulse-trace-path {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke var(--transition);
+}
+
+.pulse-trace-check {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Trace State Animations (strictly 0 glow, 0 shadow, 0 gradients) */
+/* 1. Idle: flat line with a tiny slow blip */
+.trace-idle {
+  animation: trace-blip 3s ease-in-out infinite;
+}
+
+@keyframes trace-blip {
+  0%, 80%, 100% {
+    transform: translateY(0);
+  }
+  85% {
+    transform: translateY(-2px);
+  }
+  90% {
+    transform: translateY(2px);
+  }
+  95% {
+    transform: translateY(0);
+  }
+}
+
+/* 2. Listening: active wave modulated by mic volume in JS */
+.trace-listening {
+  stroke: var(--accent);
+}
+
+/* 3. Thinking: small segment travelling along the line */
+.trace-thinking {
+  stroke-dasharray: 40 160;
+  stroke-dashoffset: 200;
+  animation: trace-travel 1.4s linear infinite;
+}
+
+@keyframes trace-travel {
+  from {
+    stroke-dashoffset: 200;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* 4. Executing: steady rhythmic pulse, one beat per step */
+.trace-executing {
+  animation: trace-pulse-beat 0.9s ease-in-out infinite;
+}
+
+@keyframes trace-pulse-beat {
+  0%, 100% {
+    stroke-width: 2px;
+  }
+  50% {
+    stroke-width: 3.5px;
+  }
+}
+
+/* 5. Blocked: line visibly cut with a gap */
+.trace-blocked {
+  stroke: var(--text-primary);
+  stroke-dasharray: 100 30 100 30;
+}
+
+/* 6. Done: line ends in a check mark */
+.trace-done {
+  stroke: var(--accent);
+}
+
+.pulse-trace-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: var(--space-2);
+}
+
+.pulse-trace-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.pulse-trace-state-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  text-transform: uppercase;
+}
+
+/* AI Voice & Text Controls */
+.ai-input-area {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+.ai-voice-controls {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.btn-voice-large {
+  min-height: 52px;
+  width: 100%;
+  max-width: 320px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition), color var(--transition);
+}
+
+.btn-voice-large:hover {
+  background: var(--surface-subtle);
+}
+
+.btn-voice-large.listening {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.voice-mic-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.ai-speech-status-msg {
+  font-size: 12px;
+  color: var(--text-muted);
+  min-height: 16px;
+  text-align: center;
+}
+
+.ai-text-row {
+  display: flex;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.ai-input {
+  flex: 1;
+  min-height: 48px;
+}
+
+/* AI Plan Section (Stages 8-11) */
+.ai-plan-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-3);
+}
+
+.ai-plan-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ai-plan-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ai-plan-step-counter {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.ai-step-list-container {
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+}
+
+.ai-step-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--border);
+}
+
+.ai-step-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  font-size: 12px;
+  gap: var(--space-2);
+}
+
+.ai-step-item.active {
+  border-left: 3px solid var(--accent);
+  font-weight: 600;
+}
+
+.ai-step-item.completed {
+  color: var(--text-muted);
+}
+
+.ai-step-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+}
+
+.ai-step-num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* Bottom Tab Bar (Trackpad, Keyboard, Both, AI) */
+.bottom-tab-bar {
+  display: flex;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 4px var(--space-2);
+  padding-bottom: max(6px, env(safe-area-inset-bottom, 6px));
+  flex-shrink: 0;
+  z-index: 20;
+}
+
+.bottom-tab-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 52px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  transition: color var(--transition), background var(--transition);
+  padding: 4px 0;
+}
+
+.bottom-tab-item:hover {
+  color: var(--text-primary);
+}
+
+.bottom-tab-item.active {
+  color: var(--accent);
+  background: var(--surface-subtle);
+  border-color: var(--border-subtle);
+  font-weight: 600;
+}
+
+.tab-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.tab-label {
+  font-size: 11px;
+  letter-spacing: 0.1px;
+}
+
+/* Fullscreen Overlay Messages */
 .overlay-screen {
   position: absolute;
-  top: 48px;
+  top: 52px;
   left: 0;
   right: 0;
   bottom: 0;

@@ -12,6 +12,8 @@ const config = require('./config');
 const { SessionManager } = require('./session');
 const { validateMessage } = require('./validator');
 const { getOrCreateSslCredentials, getSyncSslCredentials } = require('./ssl');
+const geminiService = require('./gemini');
+const aiRateLimiter = require('./aiRateLimiter');
 
 const DEFAULT_PORT = config.port;
 const HOST = config.host;
@@ -112,6 +114,7 @@ function createFreshSession(previous) {
 sessionManager.onSessionDisconnect = createFreshSession;
 
 const webDir = path.join(__dirname, '..', 'web');
+app.use(express.json());
 app.use(express.static(webDir));
 app.get('/', (_req, res) => res.sendFile(path.join(webDir, 'index.html')));
 app.get('/phone', (_req, res) => res.sendFile(path.join(webDir, 'phone.html')));
@@ -142,6 +145,28 @@ app.get('/api/health', (_req, res) => {
     model: config.geminiModel,
     helperConnected: Boolean(activeSession),
     helperOs: activeSession ? activeSession.os : null
+  });
+});
+
+app.get('/api/ai/test', (req, res) => {
+  const testSession = req.query.sessionId || 'test-session';
+  const rateLimitStatus = aiRateLimiter.checkLimit(testSession);
+  res.json({
+    geminiConfigured: config.isGeminiConfigured,
+    model: config.geminiModel,
+    rateLimiter: {
+      maxRequests: 10,
+      windowMs: 60000,
+      remaining: rateLimitStatus.remaining,
+      allowed: rateLimitStatus.allowed
+    },
+    errorCodes: Object.keys(geminiService.ErrorCodes || {
+      MISSING_KEY: 'MISSING_KEY',
+      RATE_LIMITED: 'RATE_LIMITED',
+      TIMEOUT: 'TIMEOUT',
+      INVALID_OUTPUT: 'INVALID_OUTPUT',
+      API_ERROR: 'API_ERROR'
+    })
   });
 });
 

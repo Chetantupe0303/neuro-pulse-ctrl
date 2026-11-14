@@ -18,23 +18,32 @@
   const overlayDesc = document.getElementById('overlayDesc');
   const btnOverlayAction = document.getElementById('btnOverlayAction');
 
-  // Mode panels & tabs
+  // Mode panels & bottom tabs
   const tabButtons = document.querySelectorAll('.tab-btn');
+  const bottomTabItems = document.querySelectorAll('.bottom-tab-item');
   const panelTrackpad = document.getElementById('panelTrackpad');
+  const panelKeyboard = document.getElementById('panelKeyboard');
   const panelBoth = document.getElementById('panelBoth');
+  const panelAi = document.getElementById('panelAi');
   const panels = {
     trackpad: panelTrackpad,
-    both: panelBoth
+    keyboard: panelKeyboard,
+    both: panelBoth,
+    ai: panelAi
   };
 
-  // Typing elements in Both mode
+  // Typing elements
   const bothTextInput = document.getElementById('bothTextInput');
   const btnBothSend = document.getElementById('btnBothSend');
   const btnBothBackspace = document.getElementById('btnBothBackspace');
+  const keyboardTextInput = document.getElementById('keyboardTextInput');
+  const btnKeyboardSend = document.getElementById('btnKeyboardSend');
+  const btnKeyboardBackspace = document.getElementById('btnKeyboardBackspace');
 
   let ws = null;
   let isPaired = false;
   let currentMode = 'trackpad';
+  let currentTab = 'trackpad';
   let reconnectAttempts = 0;
   let isExplicitDisconnect = false;
   let terminalState = false;
@@ -44,6 +53,30 @@
 
   // Storage key for seamless session resumption
   const STORAGE_KEY = 'pulse_reconnect_session';
+
+  // Haptic feedback engine (navigator.vibrate)
+  function triggerHaptic(type = 'light') {
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      try {
+        switch (type) {
+          case 'light':
+            navigator.vibrate(10);
+            break;
+          case 'medium':
+            navigator.vibrate(20);
+            break;
+          case 'heavy':
+            navigator.vibrate([30, 20, 30]);
+            break;
+          case 'error':
+            navigator.vibrate([50, 40, 50]);
+            break;
+          default:
+            navigator.vibrate(15);
+        }
+      } catch (_) {}
+    }
+  }
 
   function setStatus(state, text) {
     statusPill.className = 'status-pill status-' + state;
@@ -183,7 +216,26 @@
           showOverlay('Connection Error', msg.message || 'Unable to connect. Scan the new QR code on your laptop.', false);
           setStatus('disconnected', 'Error');
         } else if (msg.type === 'mode') {
-          setMode(msg.value === 'both' ? 'both' : 'trackpad', false);
+          setTab(msg.value || 'trackpad', false);
+        } else if (msg.type === 'ai_plan') {
+          handleAiPlan(msg.plan);
+        } else if (msg.type === 'ai_plan_error') {
+          const errMsg = msg.error && msg.error.message ? msg.error.message : 'Planning failed';
+          setTraceState('blocked', errMsg);
+          if (aiSpeechMsg) aiSpeechMsg.textContent = errMsg;
+          triggerHaptic('error');
+        } else if (msg.type === 'ai_execution_progress') {
+          handleExecutionProgress(msg);
+        } else if (msg.type === 'ai_execution_done') {
+          setTraceState('done', 'All actions completed');
+          if (aiSpeechMsg) aiSpeechMsg.textContent = 'Execution finished successfully.';
+          if (btnAiStop) btnAiStop.style.display = 'none';
+          triggerHaptic('medium');
+        } else if (msg.type === 'ai_execution_stopped') {
+          setTraceState('blocked', msg.reason || 'Execution stopped');
+          if (aiSpeechMsg) aiSpeechMsg.textContent = msg.reason || 'Actions stopped.';
+          if (btnAiStop) btnAiStop.style.display = 'none';
+          triggerHaptic('error');
         }
       } catch (e) {
         console.error('[Phone] Parse error:', e);
@@ -233,6 +285,7 @@
 
   // Disconnect button
   disconnectBtn.addEventListener('click', () => {
+    triggerHaptic('heavy');
     isExplicitDisconnect = true;
     terminalState = true;
     clearReconnectData();
@@ -246,17 +299,27 @@
 
   if (btnOverlayAction) {
     btnOverlayAction.addEventListener('click', () => {
+      triggerHaptic('medium');
       isExplicitDisconnect = false;
       connect();
     });
   }
 
-  // 2-Mode switching (Mousepad vs Both)
-  function setMode(mode, notifyServer = true) {
-    currentMode = mode === 'both' ? 'both' : 'trackpad';
+  // 4-Tab switching (Trackpad, Keyboard, Both, AI)
+  function setTab(tabId, notifyServer = true) {
+    if (!tabId || !panels[tabId]) return;
+    currentTab = tabId;
+
+    bottomTabItems.forEach(item => {
+      if (item.dataset.tab === tabId) {
+        item.classList.add('active');
+      } else {
+        item.classList.remove('active');
+      }
+    });
 
     tabButtons.forEach(btn => {
-      if (btn.dataset.mode === currentMode) {
+      if (btn.dataset.mode === tabId) {
         btn.classList.add('active');
       } else {
         btn.classList.remove('active');
@@ -264,23 +327,44 @@
     });
 
     Object.keys(panels).forEach(key => {
-      if (key === currentMode) {
-        panels[key].classList.add('active');
-      } else {
-        panels[key].classList.remove('active');
+      if (panels[key]) {
+        if (key === tabId) {
+          panels[key].classList.add('active');
+        } else {
+          panels[key].classList.remove('active');
+        }
       }
     });
 
-    if (notifyServer) {
-      send({ type: 'mode', value: currentMode });
+    // Notify server of mode change for supported physical input modes
+    if (['trackpad', 'keyboard', 'both'].includes(tabId)) {
+      currentMode = tabId;
+      if (notifyServer) {
+        send({ type: 'mode', value: currentMode });
+      }
     }
   }
+
+  function setMode(mode, notifyServer = true) {
+    setTab(mode, notifyServer);
+  }
+
+  bottomTabItems.forEach(item => {
+    item.addEventListener('click', () => {
+      const tabId = item.dataset.tab;
+      if (tabId && tabId !== currentTab) {
+        triggerHaptic('light');
+        setTab(tabId, true);
+      }
+    });
+  });
 
   tabButtons.forEach(btn => {
     btn.addEventListener('click', () => {
       const mode = btn.dataset.mode;
-      if (mode && mode !== currentMode) {
-        setMode(mode, true);
+      if (mode && mode !== currentTab) {
+        triggerHaptic('light');
+        setTab(mode, true);
       }
     });
   });
@@ -321,11 +405,14 @@
 
   // Toggle Windows & Navigation Drawer
   const btnToggleTools = document.getElementById('btnToggleTools');
+  const quickToolbar = document.getElementById('quickToolbar');
   const navDrawer = document.getElementById('navDrawer');
-  if (btnToggleTools && navDrawer) {
+  if (btnToggleTools) {
     btnToggleTools.addEventListener('click', () => {
-      const isHidden = navDrawer.style.display === 'none';
-      navDrawer.style.display = isHidden ? 'block' : 'none';
+      triggerHaptic('light');
+      const isHidden = !quickToolbar || quickToolbar.style.display === 'none';
+      if (quickToolbar) quickToolbar.style.display = isHidden ? 'block' : 'none';
+      if (navDrawer) navDrawer.style.display = isHidden ? 'block' : 'none';
       btnToggleTools.classList.toggle('active', isHidden);
     });
   }
@@ -335,11 +422,13 @@
   const btnZoomOut = document.getElementById('btnZoomOut');
   if (btnZoomIn) {
     btnZoomIn.addEventListener('click', () => {
+      triggerHaptic('light');
       send({ type: 'key', key: '=', modifiers: ['control'] });
     });
   }
   if (btnZoomOut) {
     btnZoomOut.addEventListener('click', () => {
+      triggerHaptic('light');
       send({ type: 'key', key: '-', modifiers: ['control'] });
     });
   }
@@ -616,12 +705,14 @@
     if (btnLeft) {
       btnLeft.addEventListener('click', (e) => {
         e.preventDefault();
+        triggerHaptic('medium');
         send({ type: 'click', button: 'left' });
       });
     }
     if (btnRight) {
       btnRight.addEventListener('click', (e) => {
         e.preventDefault();
+        triggerHaptic('medium');
         send({ type: 'click', button: 'right' });
       });
     }
@@ -631,67 +722,81 @@
   bindClickButtons('btnLeftClickBoth', 'btnRightClickBoth');
 
   // -------------------------------------------------------------
-  // KEYBOARD & INPUT ENGINE (Both Mode)
+  // KEYBOARD & INPUT ENGINE (Keyboard & Both Modes)
   // -------------------------------------------------------------
-  if (bothTextInput) {
-    // Stream characters directly on input event (reliable on mobile virtual keyboards)
-    bothTextInput.addEventListener('input', (e) => {
-      const inputType = e.inputType;
-      const val = e.data || bothTextInput.value;
+  function setupKeyboardInput(inputEl, sendBtn, backspaceBtn) {
+    if (!inputEl) return;
 
-      if (inputType === 'deleteContentBackward' || (!bothTextInput.value && inputType === 'deleteWordBackward')) {
+    inputEl.addEventListener('input', (e) => {
+      const inputType = e.inputType;
+      const val = e.data || inputEl.value;
+
+      if (inputType === 'deleteContentBackward' || (!inputEl.value && inputType === 'deleteWordBackward')) {
         send({
           type: 'key',
           key: 'Backspace',
           modifiers: Array.from(activeModifiers)
         });
+        triggerHaptic('light');
       } else if (val) {
         send({
           type: 'text',
           value: val
         });
+        triggerHaptic('light');
       }
 
-      // Reset value so next keystroke is captured freshly
-      bothTextInput.value = '';
+      inputEl.value = '';
     });
 
-    bothTextInput.addEventListener('keydown', (e) => {
+    inputEl.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
+        e.preventDefault();
+        if (inputEl.value) {
+          send({ type: 'text', value: inputEl.value });
+          inputEl.value = '';
+        } else {
+          send({
+            type: 'key',
+            key: 'Enter',
+            modifiers: Array.from(activeModifiers)
+          });
+        }
+        triggerHaptic('medium');
+      }
+    });
+
+    if (sendBtn) {
+      sendBtn.addEventListener('click', () => {
+        if (inputEl.value) {
+          send({ type: 'text', value: inputEl.value });
+          inputEl.value = '';
+        } else {
+          send({ type: 'key', key: 'Enter', modifiers: Array.from(activeModifiers) });
+        }
+        triggerHaptic('medium');
+      });
+    }
+
+    if (backspaceBtn) {
+      backspaceBtn.addEventListener('click', () => {
         send({
           type: 'key',
-          key: 'Enter',
+          key: 'Backspace',
           modifiers: Array.from(activeModifiers)
         });
-        e.preventDefault();
-      }
-    });
-  }
-
-  if (btnBothSend) {
-    btnBothSend.addEventListener('click', () => {
-      if (bothTextInput.value) {
-        send({ type: 'text', value: bothTextInput.value });
-        bothTextInput.value = '';
-      } else {
-        send({ type: 'key', key: 'Enter', modifiers: Array.from(activeModifiers) });
-      }
-    });
-  }
-
-  if (btnBothBackspace) {
-    btnBothBackspace.addEventListener('click', () => {
-      send({
-        type: 'key',
-        key: 'Backspace',
-        modifiers: Array.from(activeModifiers)
+        triggerHaptic('medium');
       });
-    });
+    }
   }
+
+  setupKeyboardInput(bothTextInput, btnBothSend, btnBothBackspace);
+  setupKeyboardInput(keyboardTextInput, btnKeyboardSend, btnKeyboardBackspace);
 
   // Special keys & Arrow buttons (Escape, Tab, Enter, Space, Arrows)
   document.querySelectorAll('.key-btn[data-key]').forEach(btn => {
     btn.addEventListener('click', () => {
+      triggerHaptic('medium');
       const keyName = btn.dataset.key;
       send({
         type: 'key',
@@ -707,16 +812,29 @@
     });
   });
 
+  // Shortcut buttons (Copy, Paste, Select All, Undo)
+  document.querySelectorAll('.key-btn[data-shortcut]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      triggerHaptic('medium');
+      const sc = btn.dataset.shortcut;
+      if (sc === 'copy') send({ type: 'key', key: 'c', modifiers: ['ctrl'] });
+      else if (sc === 'paste') send({ type: 'key', key: 'v', modifiers: ['ctrl'] });
+      else if (sc === 'select-all') send({ type: 'key', key: 'a', modifiers: ['ctrl'] });
+      else if (sc === 'undo') send({ type: 'key', key: 'z', modifiers: ['ctrl'] });
+    });
+  });
+
   // Modifier toggle buttons (Ctrl, Alt, Shift)
   document.querySelectorAll('.key-btn.modifier[data-modifier]').forEach(btn => {
     btn.addEventListener('click', () => {
+      triggerHaptic('light');
       const mod = btn.dataset.modifier;
       if (activeModifiers.has(mod)) {
         activeModifiers.delete(mod);
-        btn.classList.remove('active');
+        document.querySelectorAll(`.key-btn.modifier[data-modifier="${mod}"]`).forEach(m => m.classList.remove('active'));
       } else {
         activeModifiers.add(mod);
-        btn.classList.add('active');
+        document.querySelectorAll(`.key-btn.modifier[data-modifier="${mod}"]`).forEach(m => m.classList.add('active'));
       }
     });
   });
@@ -748,6 +866,369 @@
       checkUrlUpdate();
     }
   });
+
+  // ==========================================
+  // STAGE 6: AI Tab, Pulse Trace & Voice Input
+  // ==========================================
+  const pulseTraceContainer = document.getElementById('pulseTraceContainer');
+  const pulseTracePath = document.getElementById('pulseTracePath');
+  const pulseTraceCheck = document.getElementById('pulseTraceCheck');
+  const pulseTraceLabel = document.getElementById('pulseTraceLabel');
+  const pulseTraceState = document.getElementById('pulseTraceState');
+  const btnVoiceInput = document.getElementById('btnVoiceInput');
+  const voiceBtnText = document.getElementById('voiceBtnText');
+  const aiSpeechMsg = document.getElementById('aiSpeechMsg');
+  const aiCommandInput = document.getElementById('aiCommandInput');
+  const btnSendAiCommand = document.getElementById('btnSendAiCommand');
+  const aiPlanSection = document.getElementById('aiPlanSection');
+  const aiPlanStepCounter = document.getElementById('aiPlanStepCounter');
+  const aiStepList = document.getElementById('aiStepList');
+  const btnAiStop = document.getElementById('btnAiStop');
+
+  let currentTraceState = 'idle';
+  let speechRecognition = null;
+  let isListening = false;
+  let audioContext = null;
+  let audioAnalyser = null;
+  let audioMediaStream = null;
+  let animFrameId = null;
+
+  // Pulse Trace state transitions (6 states strictly required)
+  function setTraceState(state, labelText) {
+    currentTraceState = state;
+    if (!pulseTracePath || !pulseTraceLabel || !pulseTraceState) return;
+
+    // Reset base path attributes and checkmark
+    pulseTracePath.className.baseVal = 'pulse-trace-path';
+    if (pulseTraceCheck) pulseTraceCheck.style.display = 'none';
+
+    switch (state) {
+      case 'idle':
+        pulseTracePath.classList.add('trace-idle');
+        pulseTracePath.setAttribute('d', 'M 0 24 L 130 24 L 140 24 L 145 18 L 150 30 L 155 24 L 165 24 L 320 24');
+        pulseTraceLabel.textContent = labelText || 'Idle — Tap mic or type command';
+        pulseTraceState.textContent = 'IDLE';
+        break;
+
+      case 'listening':
+        pulseTracePath.classList.add('trace-listening');
+        pulseTraceLabel.textContent = labelText || 'Listening...';
+        pulseTraceState.textContent = 'LISTENING';
+        break;
+
+      case 'thinking':
+        pulseTracePath.classList.add('trace-thinking');
+        pulseTracePath.setAttribute('d', 'M 0 24 L 320 24');
+        pulseTraceLabel.textContent = labelText || 'Thinking...';
+        pulseTraceState.textContent = 'THINKING';
+        break;
+
+      case 'executing':
+        pulseTracePath.classList.add('trace-executing');
+        pulseTracePath.setAttribute('d', 'M 0 24 L 70 24 L 80 18 L 90 30 L 100 24 L 220 24 L 230 18 L 240 30 L 250 24 L 320 24');
+        pulseTraceLabel.textContent = labelText || 'Executing...';
+        pulseTraceState.textContent = 'EXECUTING';
+        break;
+
+      case 'blocked':
+        pulseTracePath.classList.add('trace-blocked');
+        // Visibly cut with a gap
+        pulseTracePath.setAttribute('d', 'M 0 24 L 135 24 M 185 24 L 320 24');
+        pulseTraceLabel.textContent = labelText || 'Blocked';
+        pulseTraceState.textContent = 'BLOCKED';
+        break;
+
+      case 'done':
+        pulseTracePath.classList.add('trace-done');
+        pulseTracePath.setAttribute('d', 'M 0 24 L 295 24');
+        if (pulseTraceCheck) pulseTraceCheck.style.display = 'block';
+        pulseTraceLabel.textContent = labelText || 'Done';
+        pulseTraceState.textContent = 'DONE';
+        break;
+    }
+  }
+
+  // Render plan steps in the phone UI
+  function renderPlanSteps(steps = []) {
+    if (!aiStepList) return;
+    aiStepList.innerHTML = '';
+
+    steps.forEach((step, idx) => {
+      const item = document.createElement('div');
+      item.className = 'ai-step-item';
+      item.id = `phoneStep-${idx}`;
+
+      const titleWrap = document.createElement('div');
+      titleWrap.className = 'ai-step-title';
+
+      const num = document.createElement('span');
+      num.className = 'ai-step-num';
+      num.textContent = `${idx + 1}.`;
+
+      const desc = document.createElement('span');
+      desc.textContent = step.description || step.tool;
+
+      titleWrap.appendChild(num);
+      titleWrap.appendChild(desc);
+
+      const badge = document.createElement('span');
+      const risk = step.risk || 'safe';
+      badge.className = `status-badge ${risk}`;
+      badge.textContent = risk === 'blocked' ? 'Blocked' : (risk === 'confirm' ? 'Needs approval' : 'Safe');
+
+      item.appendChild(titleWrap);
+      item.appendChild(badge);
+      aiStepList.appendChild(item);
+    });
+  }
+
+  function handleAiPlan(plan) {
+    if (!plan) return;
+    const steps = plan.steps || [];
+    if (aiPlanSection) aiPlanSection.style.display = 'flex';
+    if (aiPlanStepCounter) aiPlanStepCounter.textContent = `${steps.length} step${steps.length === 1 ? '' : 's'}`;
+    renderPlanSteps(steps);
+
+    if (steps.length === 0) {
+      setTraceState('blocked', plan.reason || 'No safe plan could be generated');
+      if (aiSpeechMsg) aiSpeechMsg.textContent = plan.reason || 'No executable actions.';
+    } else {
+      setTraceState('done', `Plan ready: ${steps.length} step${steps.length === 1 ? '' : 's'}`);
+      if (aiSpeechMsg) aiSpeechMsg.textContent = plan.summary || 'Plan generated successfully.';
+    }
+    triggerHaptic('light');
+  }
+
+  function handleExecutionProgress(msg) {
+    const { currentStep, totalSteps, step } = msg;
+    setTraceState('executing', `Step ${currentStep} of ${totalSteps}: ${step?.tool || 'working'}`);
+    if (btnAiStop) btnAiStop.style.display = 'inline-block';
+    if (aiSpeechMsg) aiSpeechMsg.textContent = step?.description || `Running step ${currentStep}...`;
+
+    // Highlight active step item
+    if (aiStepList) {
+      aiStepList.querySelectorAll('.ai-step-item').forEach((item, idx) => {
+        if (idx + 1 === currentStep) {
+          item.classList.add('active');
+          item.classList.remove('completed');
+        } else if (idx + 1 < currentStep) {
+          item.classList.remove('active');
+          item.classList.add('completed');
+        } else {
+          item.classList.remove('active');
+          item.classList.remove('completed');
+        }
+      });
+    }
+  }
+
+  // Audio analyser for real-time microphone volume modulation during 'listening'
+  async function startAudioMonitoring() {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      audioContext = new AudioCtx();
+      audioMediaStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      const source = audioContext.createMediaStreamSource(audioMediaStream);
+      audioAnalyser = audioContext.createAnalyser();
+      audioAnalyser.fftSize = 64;
+      source.connect(audioAnalyser);
+
+      const bufferLength = audioAnalyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+
+      function renderFrame() {
+        if (!isListening || currentTraceState !== 'listening') return;
+        audioAnalyser.getByteFrequencyData(dataArray);
+
+        // Calculate average volume / energy
+        let sum = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          sum += dataArray[i];
+        }
+        const avg = sum / bufferLength; // 0 to 255
+        const amp = Math.min(20, Math.max(2, (avg / 255) * 22));
+
+        // Dynamically modulate path amplitude
+        if (pulseTracePath) {
+          pulseTracePath.setAttribute(
+            'd',
+            `M 0 24 Q 60 ${24 - amp} 120 24 T 240 ${24 + amp} T 320 24`
+          );
+        }
+        animFrameId = requestAnimationFrame(renderFrame);
+      }
+      renderFrame();
+    } catch (_) {
+      // Audio level visualizer fallback - still functional without analyser
+    }
+  }
+
+  function stopAudioMonitoring() {
+    if (animFrameId) {
+      cancelAnimationFrame(animFrameId);
+      animFrameId = null;
+    }
+    if (audioMediaStream) {
+      try {
+        audioMediaStream.getTracks().forEach(t => t.stop());
+      } catch (_) {}
+      audioMediaStream = null;
+    }
+    if (audioContext && audioContext.state !== 'closed') {
+      try {
+        audioContext.close();
+      } catch (_) {}
+      audioContext = null;
+    }
+  }
+
+  // Web Speech API initialization
+  const SpeechRecognition = typeof window !== 'undefined' ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null;
+  const isSpeechSupported = !!SpeechRecognition;
+
+  if (!isSpeechSupported && aiSpeechMsg) {
+    aiSpeechMsg.textContent = 'Speech recognition not supported in this browser. Please type commands below.';
+  }
+
+  function startListening() {
+    if (!isSpeechSupported) {
+      if (aiSpeechMsg) aiSpeechMsg.textContent = 'Speech recognition not supported. Use text input below.';
+      return;
+    }
+
+    try {
+      speechRecognition = new SpeechRecognition();
+      speechRecognition.lang = 'en-US';
+      speechRecognition.interimResults = true;
+      speechRecognition.continuous = false;
+
+      speechRecognition.onstart = () => {
+        isListening = true;
+        if (btnVoiceInput) btnVoiceInput.classList.add('listening');
+        if (voiceBtnText) voiceBtnText.textContent = 'Listening...';
+        if (aiSpeechMsg) aiSpeechMsg.textContent = 'Listening to your command...';
+        setTraceState('listening', 'Listening...');
+        triggerHaptic('medium');
+        startAudioMonitoring();
+      };
+
+      speechRecognition.onresult = (event) => {
+        let interim = '';
+        let final = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            final += event.results[i][0].transcript;
+          } else {
+            interim += event.results[i][0].transcript;
+          }
+        }
+        const text = final || interim;
+        if (aiCommandInput && text) {
+          aiCommandInput.value = text;
+        }
+      };
+
+      speechRecognition.onerror = (e) => {
+        if (aiSpeechMsg) {
+          aiSpeechMsg.textContent = e.error === 'not-allowed'
+            ? 'Microphone permission denied. Enable microphone access in browser settings.'
+            : 'Voice input error: ' + (e.error || 'Try typing instead');
+        }
+        stopListening();
+        setTraceState('idle');
+      };
+
+      speechRecognition.onend = () => {
+        stopListening();
+        if (aiCommandInput && aiCommandInput.value.trim()) {
+          setTraceState('idle', 'Ready — Command captured');
+        } else {
+          setTraceState('idle');
+        }
+      };
+
+      speechRecognition.start();
+    } catch (err) {
+      if (aiSpeechMsg) aiSpeechMsg.textContent = 'Could not start voice recognition: ' + err.message;
+      stopListening();
+      setTraceState('idle');
+    }
+  }
+
+  function stopListening() {
+    isListening = false;
+    stopAudioMonitoring();
+    if (speechRecognition) {
+      try {
+        speechRecognition.stop();
+      } catch (_) {}
+      speechRecognition = null;
+    }
+    if (btnVoiceInput) btnVoiceInput.classList.remove('listening');
+    if (voiceBtnText) voiceBtnText.textContent = 'Tap to Speak';
+  }
+
+  // Voice button click handler
+  if (btnVoiceInput) {
+    btnVoiceInput.addEventListener('click', () => {
+      triggerHaptic('light');
+      if (isListening) {
+        stopListening();
+        setTraceState('idle');
+      } else {
+        startListening();
+      }
+    });
+  }
+
+  // Send AI command via button or Enter
+  function submitAiCommand() {
+    if (!aiCommandInput) return;
+    const command = aiCommandInput.value.trim();
+    if (!command) return;
+
+    triggerHaptic('medium');
+    setTraceState('thinking', 'Planning action...');
+    if (aiSpeechMsg) aiSpeechMsg.textContent = 'Analyzing command with Gemini...';
+
+    // Send to server via WebSocket
+    send({
+      type: 'ai_command',
+      command: command
+    });
+  }
+
+  if (btnSendAiCommand) {
+    btnSendAiCommand.addEventListener('click', submitAiCommand);
+  }
+
+  if (aiCommandInput) {
+    aiCommandInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        submitAiCommand();
+      }
+    });
+  }
+
+  // Stop button handler (instant abort)
+  if (btnAiStop) {
+    btnAiStop.addEventListener('click', () => {
+      triggerHaptic('heavy');
+      send({ type: 'ai_stop' });
+      setTraceState('blocked', 'Aborted by user');
+      btnAiStop.style.display = 'none';
+    });
+  }
+
+  // Expose trace API for testing and window controller
+  window.pulseTrace = {
+    setTraceState,
+    getState: () => currentTraceState,
+    isSpeechSupported: () => isSpeechSupported
+  };
 
   // Start connection
   connect();
