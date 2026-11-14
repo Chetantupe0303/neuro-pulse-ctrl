@@ -4,7 +4,7 @@ const EventEmitter = require('events');
 const path = require('path');
 const fs = require('fs');
 const WebSocket = require('ws');
-const { executeEvent } = require('./executor');
+const { executeEvent, executeStep } = require('./executor');
 
 const INPUT_TYPES = new Set(['move', 'click', 'scroll', 'text', 'key']);
 
@@ -106,6 +106,31 @@ class PulseHelperClient extends EventEmitter {
       this.executionChain = this.executionChain
         .then(() => executeEvent(msg, this.currentMode))
         .catch((err) => console.error('[Helper] Input error:', err.message));
+    } else if (msg.type === 'ai_step') {
+      this.executionChain = this.executionChain
+        .then(async () => {
+          try {
+            await executeStep(msg.step);
+            if (this.ws && this.ws.readyState === 1) {
+              this.ws.send(JSON.stringify({
+                type: 'ai_step_ack',
+                stepId: msg.stepId || (msg.step && msg.step.id),
+                success: true
+              }));
+            }
+          } catch (err) {
+            console.error('[Helper] AI step execution error:', err.message);
+            if (this.ws && this.ws.readyState === 1) {
+              this.ws.send(JSON.stringify({
+                type: 'ai_step_ack',
+                stepId: msg.stepId || (msg.step && msg.step.id),
+                success: false,
+                error: err.message
+              }));
+            }
+          }
+        })
+        .catch((err) => console.error('[Helper] Step chain error:', err.message));
     }
   }
 
