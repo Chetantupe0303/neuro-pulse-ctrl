@@ -31,7 +31,7 @@ function parseDeviceName(userAgent = '') {
 }
 
 class Session {
-  constructor(sessionId, token) {
+  constructor(sessionId, token, os = 'win32') {
     this.id = sessionId;
     this.token = token; // One-time pairing token
     this.approvalToken = crypto.randomBytes(32).toString('hex');
@@ -43,6 +43,7 @@ class Session {
     this.phoneWs = null;
     this.pendingPhoneWs = null;
 
+    this.os = os; // 'win32' | 'darwin' | 'linux'
     this.status = 'waiting'; // 'waiting' | 'pending_approval' | 'connected' | 'disconnected'
     this.mode = 'trackpad'; // 'trackpad' | 'keyboard' | 'both'
     this.deviceName = 'Mobile Device';
@@ -123,11 +124,13 @@ class SessionManager {
   /**
    * Creates a new session bound to a helper WebSocket.
    * @param {WebSocket} helperWs
+   * @param {string} [os='win32']
    * @returns {Session}
    */
-  createSession(helperWs) {
+  createSession(helperWs, os = 'win32') {
     const { sessionId, token } = this.generateCredentials();
-    const session = new Session(sessionId, token);
+    const detectedOs = os || (helperWs && helperWs.os) || 'win32';
+    const session = new Session(sessionId, token, detectedOs);
     session.helperWs = helperWs;
 
     this.sessions.set(sessionId, session);

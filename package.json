@@ -10,10 +10,13 @@
     "helper": "node helper/index.js",
     "dev": "concurrently -k \"npm run start:server\" \"npm run start:helper\"",
     "test": "node test/end-to-end-test.js",
-    "test:lifecycle": "node test/reconnect-test.js"
+    "test:lifecycle": "node test/reconnect-test.js",
+    "test:stage1": "node test/stage1-test.js"
   },
   "dependencies": {
+    "@google/genai": "^3.3.0",
     "@nut-tree/nut-js": "npm:@nut-tree-fork/nut-js@^4.2.6",
+    "dotenv": "^18.0.10",
     "express": "^4.22.3",
     "qrcode": "^1.5.4",
     "ws": "^8.22.2"

@@ -3,3 +3,10 @@ node_modules
 Thumbs.db
 *.log
 .pulse-config.json
+.env
+.env.local
+.env.*.local
+*.pem
+*.crt
+*.key
+certs/

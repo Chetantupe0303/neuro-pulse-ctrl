@@ -33,7 +33,8 @@ class PulseHelperClient extends EventEmitter {
   }
 
   get socketUrl() {
-    return `ws://localhost:${this.port}/ws?role=helper`;
+    const osParam = encodeURIComponent(process.platform);
+    return `ws://localhost:${this.port}/ws?role=helper&os=${osParam}`;
   }
 
   connect() {
@@ -42,7 +43,12 @@ class PulseHelperClient extends EventEmitter {
     console.log(`[Helper] Connecting to local server at ws://localhost:${this.port}...`);
     const ws = new WebSocket(this.socketUrl);
     this.ws = ws;
-    ws.on('open', () => this.emit('status', { status: 'connected' }));
+    ws.on('open', () => {
+      this.emit('status', { status: 'connected' });
+      try {
+        ws.send(JSON.stringify({ type: 'helper_init', os: process.platform }));
+      } catch (_) {}
+    });
     ws.on('message', (data) => {
       let msg;
       try { msg = JSON.parse(data.toString()); } catch (_) { return; }

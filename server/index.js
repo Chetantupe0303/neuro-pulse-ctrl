@@ -7,11 +7,12 @@ const fs = require('fs');
 const express = require('express');
 const { WebSocketServer } = require('ws');
 const QRCode = require('qrcode');
+const config = require('./config');
 const { SessionManager } = require('./session');
 const { validateMessage } = require('./validator');
 
-const DEFAULT_PORT = parseInt(process.env.PORT || '3000', 10);
-const HOST = process.env.HOST || '0.0.0.0';
+const DEFAULT_PORT = config.port;
+const HOST = config.host;
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws' });
@@ -76,7 +77,8 @@ async function publishSession(session) {
   const payload = {
     sessionId: session.id, token: session.token, phoneUrl, qrDataUrl,
     approvalToken: session.approvalToken,
-    status: session.status, mode: session.mode, deviceName: session.deviceName
+    status: session.status, mode: session.mode, deviceName: session.deviceName,
+    os: session.os
   };
   send(session.laptopWebWs, { ...payload, type: 'session_info' });
   send(session.helperWs, { ...payload, type: 'session_ready' });
@@ -84,7 +86,8 @@ async function publishSession(session) {
 
 function createFreshSession(previous) {
   if (!previous.helperWs || previous.helperWs.readyState !== 1) return;
-  const session = sessionManager.createSession(previous.helperWs);
+  const helperOs = previous.os || (previous.helperWs && previous.helperWs.os) || 'win32';
+  const session = sessionManager.createSession(previous.helperWs, helperOs);
   session.helperWs.sessionId = session.id;
   session.laptopWebWs = previous.laptopWebWs;
   if (session.laptopWebWs && session.laptopWebWs.readyState === 1) {
@@ -104,6 +107,23 @@ app.get('/api/info', (_req, res) => {
   const lanIp = getLocalIpAddress();
   res.json({ lanIp, port: activePort, localUrl: `http://localhost:${activePort}`, lanUrl: `http://${lanIp}:${activePort}` });
 });
+app.get('/api/health', (_req, res) => {
+  let activeSession = null;
+  for (const session of sessionManager.sessions.values()) {
+    if (session.helperWs && session.helperWs.readyState === 1) {
+      activeSession = session;
+      break;
+    }
+  }
+
+  res.json({
+    status: 'ok',
+    geminiConfigured: config.isGeminiConfigured,
+    model: config.geminiModel,
+    helperConnected: Boolean(activeSession),
+    helperOs: activeSession ? activeSession.os : null
+  });
+});
 
 wss.on('connection', async (ws, req) => {
   const url = new URL(req.url, 'http://localhost');
@@ -118,11 +138,17 @@ wss.on('connection', async (ws, req) => {
       ws.close(4003, 'Local helper required');
       return;
     }
-    const session = sessionManager.createSession(ws);
+    const helperOs = url.searchParams.get('os') || 'win32';
+    ws.os = helperOs;
+    const session = sessionManager.createSession(ws, helperOs);
     ws.sessionId = session.id;
     ws.on('message', (data) => {
       try {
         const msg = JSON.parse(data.toString());
+        if (msg.type === 'helper_init' && msg.os) {
+          ws.os = msg.os;
+          session.os = msg.os;
+        }
         if (msg.type === 'disconnect') sessionManager.disconnectSession(ws.sessionId, 'helper');
       } catch (_) {}
     });
@@ -149,7 +175,8 @@ wss.on('connection', async (ws, req) => {
       try { msg = JSON.parse(data.toString()); } catch (_) { return; }
       let active = sessionManager.getSession(ws.sessionId);
       if (!active && msg.type === 'request_new_qr' && ws.helperWs && ws.helperWs.readyState === 1) {
-        active = sessionManager.createSession(ws.helperWs);
+        const helperOs = (ws.helperWs && ws.helperWs.os) || 'win32';
+        active = sessionManager.createSession(ws.helperWs, helperOs);
         active.laptopWebWs = ws;
         ws.sessionId = active.id;
         await publishSession(active);
@@ -267,4 +294,4 @@ if (require.main === module) {
   })();
 }
 
-module.exports = { app, server, sessionManager, getLocalIpAddress, generateQrForSession };
+module.exports = { app, server, sessionManager, getLocalIpAddress, generateQrForSession, config };
