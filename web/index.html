@@ -22,6 +22,7 @@
           <span id="statusText">Waiting for local helper</span>
         </div>
 
+        <button id="btnSummarize" class="btn btn-secondary" style="margin-right: 8px;">Summarize</button>
         <button id="disconnectBtn" class="btn btn-destructive" disabled>Disconnect</button>
       </div>
     </header>
@@ -139,6 +140,20 @@
             </div>
           </div>
 
+          <!-- Screen Vision Opt-In Card (Stage 14) -->
+          <div class="screen-vision-card card-subtle" style="padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: var(--space-3); background: var(--surface-subtle);">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-2);">
+              <label for="toggleScreenVision" style="display: flex; align-items: center; gap: var(--space-2); cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-primary);">
+                <input type="checkbox" id="toggleScreenVision" style="width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent);">
+                Allow AI to see my screen
+              </label>
+              <span id="visionStatusIndicator" class="status-badge" style="font-size: 11px;">Vision: OFF</span>
+            </div>
+            <p style="font-size: 11px; color: var(--text-muted); line-height: 1.4; margin: 0;">
+              Privacy Notice: Screenshots are captured on-demand only when a visual target is explicitly requested, processed by Gemini to locate coordinates, and never stored.
+            </p>
+          </div>
+
           <!-- Guardian Plan & Decision Placeholder -->
           <div id="guardianPanel" class="guardian-panel-container">
             <div class="guardian-empty-state">
@@ -194,6 +209,41 @@
       <div class="modal-actions">
         <button id="denyStepBtn" class="btn btn-destructive">Deny (Stop Plan)</button>
         <button id="allowStepBtn" class="btn btn-primary">Allow Action</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Session Summary Modal -->
+  <div id="summaryModal" class="modal-overlay" style="display:none;">
+    <div class="modal-card" style="max-width: 520px;">
+      <div class="modal-header-row" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-2);">
+        <h2 class="modal-title" style="margin-bottom: 0;">Session Activity Summary</h2>
+        <span class="status-badge safe" id="summarySourceBadge">PulseCtrl AI</span>
+      </div>
+      <p class="modal-desc" id="summaryText">Generating session operations summary...</p>
+
+      <!-- Stats Grid -->
+      <div class="summary-stats-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); margin-bottom: var(--space-3);">
+        <div class="card-subtle" style="padding: var(--space-2); text-align: center; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-subtle);">
+          <div style="font-size: 11px; color: var(--text-muted);">Safe Actions</div>
+          <strong id="summaryCountSafe" style="font-size: 16px; color: var(--text-primary);">0</strong>
+        </div>
+        <div class="card-subtle" style="padding: var(--space-2); text-align: center; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-subtle);">
+          <div style="font-size: 11px; color: var(--text-muted);">Approved</div>
+          <strong id="summaryCountConfirm" style="font-size: 16px; color: var(--text-primary);">0</strong>
+        </div>
+        <div class="card-subtle" style="padding: var(--space-2); text-align: center; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-subtle);">
+          <div style="font-size: 11px; color: var(--text-muted);">Blocked</div>
+          <strong id="summaryCountBlocked" style="font-size: 16px; color: var(--text-primary);">0</strong>
+        </div>
+      </div>
+
+      <div class="card-subtle" id="summaryHighlightsBox" style="padding: var(--space-3); margin-bottom: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12px; background: var(--surface-subtle);">
+        <ul id="summaryHighlightsList" style="margin: 0; padding-left: var(--space-4); display: flex; flex-direction: column; gap: 4px;"></ul>
+      </div>
+
+      <div class="modal-actions">
+        <button id="closeSummaryBtn" class="btn btn-primary" style="width: 100%;">Close Summary</button>
       </div>
     </div>
   </div>

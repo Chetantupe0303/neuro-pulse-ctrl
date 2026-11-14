@@ -1,47 +1,103 @@
-# PulseCtrl
+# PulseCtrl & PulseCtrl AI
 
-### Your laptop, one tap away.
+> **"Other AI agents ask you to trust them. PulseCtrl AI checks."**
 
-PulseCtrl turns your phone into a wireless trackpad and keyboard for your laptop. Both devices connect over your local Wi-Fi; the laptop asks you to approve a phone before it can control anything.
+PulseCtrl turns your smartphone into a secure, wireless, voice-controlled remote for your laptop over local Wi-Fi. Powered by Google Gemini and protected by an independent **AI Guardian**, spoken and typed commands are translated into precise desktop actions that are inspected and verified for safety before running.
 
-## Get ready
+---
 
-- Install [Node.js 18 or newer](https://nodejs.org/).
-- Connect your laptop and phone to the same Wi-Fi network.
-- Open a terminal in the PulseCtrl project folder and install dependencies:
+## Architecture Overview
 
+```
+ ┌───────────────────────────┐                  ┌────────────────────────────────────────┐
+ │   Phone Client (Mobile)   │                  │        Laptop Console (Desktop)        │
+ │  - Web Speech API + Mic   │                  │  - Operations Console (3 Columns)      │
+ │  - Pulse Trace (6 States) │                  │  - QR Code & Session Manager           │
+ │  - Trackpad / Keyboard /  │                  │  - Monospace Activity Audit Log        │
+ │    Both / AI Tabs         │                  │  - AI Guardian Real-Time Inspection    │
+ │  - Instant "Stop" Abort   │                  │  - 30s Auto-Deny Confirmation Modal    │
+ └─────────────┬─────────────┘                  └───────────────────┬────────────────────┘
+               │                                                    │
+               │ HTTPS / WSS (Local LAN)                            │ WSS (Loopback)
+               ▼                                                    ▼
+ ┌───────────────────────────────────────────────────────────────────────────────────────┐
+ │                            PulseCtrl Server (/server)                                 │
+ │  - Local HTTPS Server (selfsigned TLS with SANs)                                      │
+ │  - Per-Session Sliding Window Rate Limiter (10 req/min)                               │
+ │  - Rule-Based Blocklist (Terminal, Deletion, Passwords, Payment, Dangerous Hotkeys)   │
+ │  - Command Planner (Gemini 2.5 Flash SDK, OS-aware shortcuts, max 15 steps)           │
+ │  - AI Guardian Engine (3-tier safety rating: Safe / Needs approval / Blocked)         │
+ │  - Fail-Closed Architecture (offline / error defaults to 'confirm' at minimum)        │
+ │  - Plan Runner (step-by-step execution, live progress, instant stop)                  │
+ │  - Audit Logger & Session Summarizer (plain-language executive reports)               │
+ └──────────────────────────────────────────┬────────────────────────────────────────────┘
+                                            │ Local IPC / Loopback WSS
+                                            ▼
+ ┌───────────────────────────────────────────────────────────────────────────────────────┐
+ │                            PulseCtrl Helper (/helper)                                 │
+ │  - Native Input Simulation (@nut-tree/nut-js)                                         │
+ │  - Hardcoded App Launch Allowlist (chrome, edge, notepad, calculator, explorer/finder) │
+ │  - Screen Capture Engine (Opt-in multimodal screen vision targeting)                  │
+ │  - Per-Step Acknowledgment Protocol                                                   │
+ └───────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Design System
+
+PulseCtrl strictly implements a calm, precise, operations-grade design system:
+- **Color**: Neutrals + exactly **ONE** accent hue (`#2F4BFF`). Zero gradients. Zero glow. Zero blur or glassmorphism. Zero box-shadows (1px borders only).
+- **Themes**: Light theme default, with matching dark theme via `prefers-color-scheme`.
+- **Status Badges Without Color**:
+  - `Safe` = Outlined check icon + "Safe"
+  - `Needs approval` = Half-filled circle icon + "Needs approval"
+  - `Blocked` = Solid filled badge with cross + "Blocked"
+  - Destructive actions (`Disconnect`, `Stop`, `Deny`) use solid dark/inverted buttons with clear text.
+- **The Signature "Pulse Trace"**:
+  - `idle`: Flat line with tiny slow blip (*Idle — Tap mic or type command*)
+  - `listening`: Dynamic waveform modulated by live microphone volume (*Listening...*)
+  - `thinking`: Traveling segment along the line (*Thinking...*)
+  - `executing`: Steady rhythmic pulse, one beat per step (*Executing...*)
+  - `blocked`: Line visibly cut with a gap (*Blocked*)
+  - `done`: Line ends in a check mark (*Done*)
+
+---
+
+## Quick Start
+
+### Prerequisites
+- Node.js 18 or newer
+- Laptop and phone connected to the same local Wi-Fi network
+- (Optional for AI features) Gemini API Key
+
+### 1. Setup Configuration
 ```bash
+# Clone and install dependencies
 npm install
+
+# Copy environment variables
+cp .env.example .env
 ```
+In your `.env` file, optionally provide your Gemini API key:
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_MODEL=gemini-2.5-flash
+ENABLE_HTTPS=true
+PORT=3000
+```
+*(Note: If no API key is provided, manual Trackpad, Keyboard, and Both modes continue working completely normally, and local deterministic fallbacks protect the AI tab).*
 
-## Start PulseCtrl
-
-Open **two terminals** in the project folder. The server and helper both need to stay running, so leave each terminal open while you use PulseCtrl.
-
-**Terminal 1 — start the server:**
-
+### 2. Start PulseCtrl
+You can launch both server and helper concurrently:
 ```bash
-cd server
-npm run server
+npm run dev
 ```
+Or in separate terminals:
+- **Terminal 1**: `npm run server`
+- **Terminal 2**: `npm run helper`
 
-**Terminal 2 — start the laptop helper:**
-
-```bash
-cd helper
-npm run helper
-```
-
-The server displays your laptop's local IP and port. The helper opens the laptop control page; if it does not open automatically, use the `Laptop Web` URL it prints. If you set a custom port, use the same `PORT` value for both processes.
-
-## Pair your phone
-
-1. Keep both devices on the same Wi-Fi network. Allow local network access in your laptop firewall if prompted.
-2. Open the laptop control page and scan its QR code with your phone.
-3. Approve the request on the laptop when **Allow this device?** appears. Choose **Deny** to refuse it.
-4. Use the phone as a trackpad or keyboard. Choose **Disconnect** on the laptop to end the session.
-
-Each QR code works once and expires after 2 minutes. Approved sessions end after 15 minutes without activity. Only one phone can connect per session; a fresh QR code appears when a session ends.
+---
 
 ## Local HTTPS & Mobile Voice Permission
 
@@ -54,34 +110,91 @@ When scanning the QR code for the first time on your phone:
 - **iOS (Safari)**: You will see "This Connection Is Not Private". Tap **Show Details** at the bottom, then tap **visit this website**, and confirm **Visit Website**.
 - **Android (Chrome)**: You will see "Your connection is not private". Tap **Advanced**, then tap **Proceed to <your-ip> (unsafe)**.
 
-Once accepted, the phone browser saves the certificate exception and will seamlessly allow microphone permissions for PulseCtrl AI voice input.
+Once accepted, the phone browser saves the certificate exception and allows microphone permissions for voice input.
 
-### Optional: Using `mkcert` for Locally-Trusted Certificates
-If you prefer not to see the browser certificate warning on your devices, you can generate locally trusted certificates using [mkcert](https://github.com/FiloSottile/mkcert):
+---
 
+## AI Safety Architecture
+
+1. **Owner Sovereignty Always Overrides**:
+   - The laptop owner's `Allow` / `Deny` / `Disconnect` buttons always override any AI action.
+   - No command can ever run before the phone is approved by the owner.
+2. **Rule-Based Pre-Gemini Blocklist**:
+   - A hardcoded safety layer intercepts dangerous commands before contacting Gemini and before executing each step.
+   - Prohibits terminal/shell (`cmd`, `powershell`, `bash`, `zsh`), destructive deletions (`rm -rf`, `format`, `del`), credential harvesting (`passwords`, `sudo`), banking/credit card patterns, and dangerous hotkeys (`Win+R`, `Ctrl+Alt+Del`).
+3. **AI Guardian (Second-Opinion Safety Verification)**:
+   - Evaluates the plan and classifies every step as `Safe`, `Needs approval`, or `Blocked`.
+   - **Fail-Closed Guarantee**: Any API error, timeout, or missing key defaults steps to `confirm` (Needs approval) at minimum. Unverified steps never auto-run.
+4. **Owner Confirmation & 30s Auto-Deny Countdown**:
+   - Any step classified as `confirm` pauses execution and displays an approval modal on the laptop console with step details and a 30-second countdown.
+   - If the owner clicks **Deny** or the timer expires, the plan aborts immediately.
+5. **Instant Stop Button**:
+   - A prominent Stop button on phone and laptop halts execution in under 50ms.
+6. **Immutable Plans**:
+   - Plans are deep-frozen after validation. Steps cannot be mutated before or during execution.
+7. **Monospace Activity Audit Log & Session Summarizer**:
+   - Complete chronological timeline of every action, timestamp, safety classification, and owner decision.
+   - On demand (or session end), Gemini generates a plain-language executive summary of what was accomplished and what was blocked.
+8. **Opt-In Screen Vision**:
+   - Disabled by default. Enabled only when the laptop owner toggles "Allow AI to see my screen".
+   - Captures on-demand screenshots to localize UI targets with bounding boxes, mapped to screen coordinates with DPI scaling.
+
+---
+
+## Permissions (macOS)
+- **Accessibility**: Required by the helper to send mouse and keyboard inputs (System Settings → Privacy & Security → Accessibility).
+- **Screen Recording**: Required only if opting in to "Allow AI to see my screen" (System Settings → Privacy & Security → Screen Recording).
+
+---
+
+## Interactive Demo Script
+
+1. **Open PulseCtrl**: Run `npm run dev`. The laptop Operations Console opens in your browser showing the QR card and status.
+2. **Scan & Approve**: Scan the QR code with your phone. The laptop console displays *"Allow this device?"*. Tap **Allow**.
+3. **Try Manual Remote**: Test Trackpad, Keyboard, and Both modes. Feel the haptic vibrations on taps and clicks.
+4. **Open AI Tab**: Tap the **AI** tab on the phone. Observe the Pulse Trace in its `idle` state.
+5. **Voice / Example Command**:
+   - Tap **Tap to Speak** or click one of the preset demo pills:
+     `🔢 42 * 8 in Calculator`
+   - The Pulse Trace transitions through `listening` → `thinking` → `executing`.
+6. **Watch Operations Console**:
+   - The laptop Activity Timeline streams the actions with timestamps and `Safe` status badges.
+   - The Calculator application opens, pauses for focus, types `42 * 8`, and evaluates the result.
+7. **Test the AI Guardian**:
+   - Try a command requiring confirmation (e.g. closing an active window or typing sensitive text).
+   - Observe the 30-second countdown approval modal on the laptop.
+   - Try a blocked command (e.g. *"Open cmd and delete files"*). Notice the Pulse Trace visibly cut with a gap in the `blocked` state.
+8. **Generate Session Summary**:
+   - Click the **Summarize** button on the laptop console header.
+   - Review the executive breakdown of safe, confirmed, and blocked operations.
+
+---
+
+## Verification Test Suites
+
+Every stage includes automated verification test suites:
 ```bash
-# Install mkcert and install the local CA
-mkcert -install
+# Run all stage tests end-to-end
+node test/all-stages-test.js
 
-# Create certs with your LAN IP (e.g. 192.168.1.100)
-mkdir -p certs
-mkcert -key-file certs/key.pem -cert-file certs/cert.pem localhost 127.0.0.1 <your-lan-ip>
+# Or test individual stages
+npm run test:stage1
+npm run test:stage2
+npm run test:stage3
+npm run test:stage4
+npm run test:stage5
+node test/stage6-test.js
+node test/stage7-test.js
+node test/stage8-test.js
+node test/stage9-test.js
+node test/stage10-test.js
+node test/stage11-test.js
+node test/stage12-test.js
+node test/stage13-test.js
+node test/stage14-test.js
 ```
-PulseCtrl will automatically detect `certs/key.pem` and `certs/cert.pem` and use them without regenerating.
 
-To disable HTTPS and run over HTTP: set `ENABLE_HTTPS=false` in `.env`.
-
-## A note about permissions
-
-The helper uses your operating system's input APIs to move and click the cursor and type. macOS may ask you to grant Accessibility permission to the terminal or Node.js process running the helper.
-
-## Run the checks
-
-```bash
-npm test
-npm run test:lifecycle
-```
+---
 
 ## License
-
 MIT

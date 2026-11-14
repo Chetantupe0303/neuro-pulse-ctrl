@@ -38,6 +38,20 @@
   const allowStepBtn = document.getElementById('allowStepBtn');
   const denyStepBtn = document.getElementById('denyStepBtn');
 
+  // Stage 13: Session Summarizer Elements
+  const btnSummarize = document.getElementById('btnSummarize');
+  const summaryModal = document.getElementById('summaryModal');
+  const summaryText = document.getElementById('summaryText');
+  const summaryCountSafe = document.getElementById('summaryCountSafe');
+  const summaryCountConfirm = document.getElementById('summaryCountConfirm');
+  const summaryCountBlocked = document.getElementById('summaryCountBlocked');
+  const summaryHighlightsList = document.getElementById('summaryHighlightsList');
+  const closeSummaryBtn = document.getElementById('closeSummaryBtn');
+
+  // Stage 14: Screen Vision Elements
+  const toggleScreenVision = document.getElementById('toggleScreenVision');
+  const visionStatusIndicator = document.getElementById('visionStatusIndicator');
+
   let countdownInterval = null;
   let activePendingStepId = null;
   let totalAuditCount = 0;
@@ -159,6 +173,8 @@
           renderGuardianPlan(msg.plan);
         } else if (msg.type === 'confirm_step_request') {
           showStepConfirmModal(msg);
+        } else if (msg.type === 'session_summary_response') {
+          displaySessionSummary(msg.summary);
         }
       } catch (e) {
         console.error('[Laptop] Error parsing message:', e);
@@ -341,6 +357,53 @@
     }
     hideModal();
   });
+
+  // Stage 13: Summary display
+  function displaySessionSummary(summary) {
+    if (!summaryModal) return;
+    if (summaryText) summaryText.textContent = summary.summaryText || 'Summary generated.';
+    if (summaryCountSafe) summaryCountSafe.textContent = summary.stats?.safe || 0;
+    if (summaryCountConfirm) summaryCountConfirm.textContent = summary.stats?.confirm || 0;
+    if (summaryCountBlocked) summaryCountBlocked.textContent = summary.stats?.blocked || 0;
+
+    if (summaryHighlightsList) {
+      summaryHighlightsList.innerHTML = '';
+      (summary.highlights || []).forEach(hl => {
+        const li = document.createElement('li');
+        li.textContent = hl;
+        summaryHighlightsList.appendChild(li);
+      });
+    }
+    summaryModal.style.display = 'flex';
+  }
+
+  if (btnSummarize) {
+    btnSummarize.addEventListener('click', () => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'request_session_summary' }));
+      }
+    });
+  }
+
+  if (closeSummaryBtn) {
+    closeSummaryBtn.addEventListener('click', () => {
+      if (summaryModal) summaryModal.style.display = 'none';
+    });
+  }
+
+  // Stage 14: Screen Vision toggle listener
+  if (toggleScreenVision) {
+    toggleScreenVision.addEventListener('change', () => {
+      const isEnabled = toggleScreenVision.checked;
+      if (visionStatusIndicator) {
+        visionStatusIndicator.className = isEnabled ? 'status-badge safe' : 'status-badge';
+        visionStatusIndicator.textContent = isEnabled ? 'Vision: ACTIVE' : 'Vision: OFF';
+      }
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'set_screen_vision', enabled: isEnabled }));
+      }
+    });
+  }
 
   // Handle Disconnect button
   disconnectBtn.addEventListener('click', () => {

@@ -1223,6 +1223,18 @@
     });
   }
 
+  // Stage 15: Demo Mode pills handler
+  document.querySelectorAll('.demo-pill-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      triggerHaptic('light');
+      const cmd = btn.getAttribute('data-command') || btn.textContent.trim();
+      if (aiCommandInput) {
+        aiCommandInput.value = cmd;
+        setTraceState('idle', 'Example selected — Tap Send');
+      }
+    });
+  });
+
   // Expose trace API for testing and window controller
   window.pulseTrace = {
     setTraceState,

@@ -14,6 +14,13 @@ const { validateMessage } = require('./validator');
 const { getOrCreateSslCredentials, getSyncSslCredentials } = require('./ssl');
 const geminiService = require('./gemini');
 const aiRateLimiter = require('./aiRateLimiter');
+const auditLogger = require('./auditLog');
+const blocklist = require('./blocklist');
+const guardian = require('./guardian');
+const planner = require('./planner');
+const { PlanRunner } = require('./planRunner');
+const summarizer = require('./summarizer');
+const visionService = require('./vision');
 
 const DEFAULT_PORT = config.port;
 const HOST = config.host;
@@ -194,6 +201,9 @@ wss.on('connection', async (ws, req) => {
           ws.os = msg.os;
           session.os = msg.os;
         }
+        if (msg.type === 'ai_step_ack' && session.activeRunner) {
+          session.activeRunner.handleStepAck(msg);
+        }
         if (msg.type === 'disconnect') sessionManager.disconnectSession(ws.sessionId, 'helper');
       } catch (_) {}
     });
@@ -230,6 +240,30 @@ wss.on('connection', async (ws, req) => {
       if (!active) return;
       if (msg.type === 'pair_response') {
         sessionManager.handleApprovalResponse(active.id, msg.allow === true);
+      } else if (msg.type === 'step_confirmation_response' && active.activeRunner) {
+        active.activeRunner.handleConfirmResponse(msg);
+        const entry = auditLogger.log(active.id, {
+          type: msg.allow ? 'step_confirmed' : 'step_denied',
+          tool: 'owner_decision',
+          description: msg.allow ? 'Owner allowed action' : (msg.autoDenied ? 'Action auto-denied (30s timeout)' : 'Owner denied action'),
+          risk: msg.allow ? 'confirm' : 'blocked',
+          decision: msg.allow ? 'allowed' : (msg.autoDenied ? 'auto_denied' : 'denied'),
+          reason: msg.autoDenied ? 'Countdown expired' : 'Owner decision'
+        });
+        send(active.laptopWebWs, { type: 'audit_log_entry', entry });
+      } else if (msg.type === 'request_session_summary') {
+        const summary = await summarizer.generate(active.id);
+        send(ws, { type: 'session_summary_response', summary });
+      } else if (msg.type === 'set_screen_vision') {
+        visionService.setOptIn(active.id, msg.enabled === true);
+        const entry = auditLogger.log(active.id, {
+          type: 'vision_setting',
+          tool: 'screen_vision',
+          description: msg.enabled ? 'AI Screen Vision enabled by owner' : 'AI Screen Vision disabled by owner',
+          risk: 'confirm',
+          decision: msg.enabled ? 'allowed' : 'denied'
+        });
+        send(active.laptopWebWs, { type: 'audit_log_entry', entry });
       } else if (msg.type === 'disconnect' || msg.type === 'request_new_qr') {
         sessionManager.disconnectSession(active.id, 'laptop');
       }
@@ -292,6 +326,126 @@ function bindPhoneEventHandlers(ws, session) {
       session.mode = event.value;
       send(session.laptopWebWs, { type: 'mode', value: session.mode });
       send(session.helperWs, { type: 'mode', value: session.mode });
+    } else if (event.type === 'ai_stop') {
+      if (session.activeRunner) {
+        session.activeRunner.stop('Stopped by phone user');
+      }
+    } else if (event.type === 'ai_command') {
+      (async () => {
+        // 1. Blocklist pre-check
+        const cmdCheck = blocklist.checkCommand(event.command);
+        if (cmdCheck.blocked) {
+          const entry = auditLogger.log(session.id, {
+            type: 'step_blocked',
+            tool: '-',
+            description: event.command,
+            risk: 'blocked',
+            decision: 'blocked',
+            reason: cmdCheck.reason
+          });
+          send(session.laptopWebWs, { type: 'audit_log_entry', entry });
+          send(ws, {
+            type: 'ai_plan_error',
+            error: { code: 'BLOCKED', message: cmdCheck.reason }
+          });
+          return;
+        }
+
+        // 2. Plan generation via Gemini
+        const planResult = await planner.plan(event.command, {
+          os: session.os || 'win32',
+          sessionId: session.id
+        });
+
+        if (!planResult.success) {
+          send(ws, {
+            type: 'ai_plan_error',
+            error: planResult.error
+          });
+          return;
+        }
+
+        // 3. AI Guardian inspection
+        const guardianResult = await guardian.inspectPlan(planResult.plan, {
+          sessionId: session.id
+        });
+
+        // Publish plan to phone and laptop
+        send(ws, { type: 'ai_plan', plan: guardianResult.plan });
+        send(session.laptopWebWs, {
+          type: 'ai_plan_preview',
+          plan: guardianResult.plan,
+          command: event.command
+        });
+
+        const planLog = auditLogger.log(session.id, {
+          type: 'plan_created',
+          tool: 'planner',
+          description: guardianResult.plan.summary,
+          risk: guardianResult.hasBlocked ? 'blocked' : (guardianResult.hasConfirm ? 'confirm' : 'safe'),
+          decision: 'executed',
+          reason: `Generated ${guardianResult.plan.steps.length} steps`
+        });
+        send(session.laptopWebWs, { type: 'audit_log_entry', entry: planLog });
+
+        // If any step was blocked, do not auto-run
+        if (guardianResult.hasBlocked) {
+          send(ws, {
+            type: 'ai_execution_stopped',
+            reason: 'Plan contains blocked steps'
+          });
+          return;
+        }
+
+        if (guardianResult.plan.steps.length === 0) {
+          return;
+        }
+
+        // 4. Execute plan step by step
+        const runner = new PlanRunner({
+          session,
+          onProgress: (prog) => {
+            send(ws, { type: 'ai_execution_progress', ...prog });
+            send(session.laptopWebWs, { type: 'ai_execution_progress', ...prog });
+            const stepEntry = auditLogger.log(session.id, {
+              type: 'step_executed',
+              tool: prog.step.tool,
+              description: prog.step.description,
+              risk: prog.step.risk || 'safe',
+              decision: 'executed',
+              stepIndex: prog.currentStep,
+              totalSteps: prog.totalSteps
+            });
+            send(session.laptopWebWs, { type: 'audit_log_entry', entry: stepEntry });
+          },
+          onDone: (done) => {
+            send(ws, { type: 'ai_execution_done', ...done });
+            send(session.laptopWebWs, { type: 'ai_execution_done', ...done });
+            session.activeRunner = null;
+          },
+          onStopped: (stopped) => {
+            send(ws, { type: 'ai_execution_stopped', ...stopped });
+            send(session.laptopWebWs, { type: 'ai_execution_stopped', ...stopped });
+            session.activeRunner = null;
+          },
+          requestConfirmation: (step) => {
+            send(session.laptopWebWs, {
+              type: 'confirm_step_request',
+              stepId: step.id,
+              step
+            });
+          },
+          sendToHelper: (msg) => {
+            send(session.helperWs, msg);
+          }
+        });
+
+        session.activeRunner = runner;
+        await runner.execute(guardianResult.plan);
+      })().catch((err) => {
+        console.error('[Server] AI execution error:', err);
+        send(ws, { type: 'ai_plan_error', error: { message: err.message } });
+      });
     } else {
       send(session.helperWs, event);
     }
