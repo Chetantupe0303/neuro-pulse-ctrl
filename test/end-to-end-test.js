@@ -16,6 +16,7 @@ const WebSocket = require('ws');
 const { server, sessionManager } = require('../server/index');
 const { executeEvent, isPermittedInMode } = require('../helper/executor');
 const { validateMessage } = require('../server/validator');
+const config = require('../server/config');
 
 async function runEndToEndTests() {
   console.log('🧪 Starting PulseCtrl End-to-End Tests...\n');
@@ -25,8 +26,11 @@ async function runEndToEndTests() {
   const TEST_PORT = server.address().port;
   console.log(`[1] Server listening on dynamic port ${TEST_PORT}`);
 
+  const wsProto = config.httpsEnabled ? 'wss' : 'ws';
+  const wsOpts = config.httpsEnabled ? { rejectUnauthorized: false } : {};
+
   // Connect helper
-  const helperWs = new WebSocket(`ws://localhost:${TEST_PORT}/ws?role=helper`);
+  const helperWs = new WebSocket(`${wsProto}://localhost:${TEST_PORT}/ws?role=helper`, wsOpts);
   let sessionId, token, approvalToken;
 
   await new Promise((resolve, reject) => {
@@ -44,7 +48,7 @@ async function runEndToEndTests() {
   console.log(`[2] Helper registered session: ${sessionId}`);
 
   // Connect laptop web
-  const laptopWs = new WebSocket(`ws://localhost:${TEST_PORT}/ws?role=laptop_web&session=${sessionId}&approval=${approvalToken}`);
+  const laptopWs = new WebSocket(`${wsProto}://localhost:${TEST_PORT}/ws?role=laptop_web&session=${sessionId}&approval=${approvalToken}`, wsOpts);
   await new Promise((resolve) => {
     laptopWs.on('message', (data) => {
       const msg = JSON.parse(data.toString());
@@ -54,7 +58,7 @@ async function runEndToEndTests() {
   console.log('[3] Laptop Web connected to session');
 
   // Connect phone
-  const phoneWs = new WebSocket(`ws://localhost:${TEST_PORT}/ws?role=phone&session=${sessionId}&token=${token}`);
+  const phoneWs = new WebSocket(`${wsProto}://localhost:${TEST_PORT}/ws?role=phone&session=${sessionId}&token=${token}`, wsOpts);
 
   // Handle approval flow
   await new Promise((resolve) => {

@@ -24,7 +24,7 @@ const config = {
   port: parseInt(process.env.PORT || '3000', 10),
   host: process.env.HOST || '0.0.0.0',
   geminiApiKey: process.env.GEMINI_API_KEY || '',
-  geminiModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+  geminiModel: process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite',
   get isGeminiConfigured() {
     return Boolean(this.geminiApiKey && this.geminiApiKey.trim().length > 0);
   },

@@ -4,6 +4,7 @@
 
 const WebSocket = require('ws');
 const { server, sessionManager } = require('../server/index');
+const config = require('../server/config');
 
 async function runReconnectTests() {
   console.log('🧪 Starting Reconnect & Lifecycle Tests...\n');
@@ -12,8 +13,11 @@ async function runReconnectTests() {
   const TEST_PORT = server.address().port;
   console.log(`[1] Server listening on dynamic port ${TEST_PORT}`);
 
+  const wsProto = config.httpsEnabled ? 'wss' : 'ws';
+  const wsOpts = config.httpsEnabled ? { rejectUnauthorized: false } : {};
+
   // Connect helper
-  const helperWs = new WebSocket(`ws://localhost:${TEST_PORT}/ws?role=helper`);
+  const helperWs = new WebSocket(`${wsProto}://localhost:${TEST_PORT}/ws?role=helper`, wsOpts);
   let initialSessionId = null;
   let initialToken = null;
   let approvalToken = null;
@@ -34,7 +38,7 @@ async function runReconnectTests() {
   console.log(`[2] Helper registered initial session: ${initialSessionId}`);
 
   // Connect laptop web
-  const laptopWs = new WebSocket(`ws://localhost:${TEST_PORT}/ws?role=laptop_web&session=${initialSessionId}&approval=${approvalToken}`);
+  const laptopWs = new WebSocket(`${wsProto}://localhost:${TEST_PORT}/ws?role=laptop_web&session=${initialSessionId}&approval=${approvalToken}`, wsOpts);
   await new Promise((resolve) => {
     laptopWs.once('message', (data) => {
       resolve();
@@ -44,8 +48,8 @@ async function runReconnectTests() {
 
   // Connect phone with iPhone User-Agent
   const phoneWs1 = new WebSocket(
-    `ws://localhost:${TEST_PORT}/ws?role=phone&session=${initialSessionId}&token=${initialToken}`,
-    { headers: { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X)' } }
+    `${wsProto}://localhost:${TEST_PORT}/ws?role=phone&session=${initialSessionId}&token=${initialToken}`,
+    { ...wsOpts, headers: { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X)' } }
   );
 
   let phoneReconnectToken = null;
@@ -102,8 +106,8 @@ async function runReconnectTests() {
   // Now verify that a new phone can immediately connect to the new session!
   console.log('\n--- Testing Immediate Re-Connection with New QR ---');
   const phoneWs2 = new WebSocket(
-    `ws://localhost:${TEST_PORT}/ws?role=phone&session=${freshSession.sessionId}&token=${freshSession.token}`,
-    { headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 13; Pixel 7)' } }
+    `${wsProto}://localhost:${TEST_PORT}/ws?role=phone&session=${freshSession.sessionId}&token=${freshSession.token}`,
+    { ...wsOpts, headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 13; Pixel 7)' } }
   );
 
   const phone2Approval = new Promise((resolve) => {
