@@ -236,6 +236,8 @@
           if (aiSpeechMsg) aiSpeechMsg.textContent = msg.reason || 'Actions stopped.';
           if (btnAiStop) btnAiStop.style.display = 'none';
           triggerHaptic('error');
+        } else if (msg.type === 'ai_transcribe_response') {
+          handleTranscribeResponse(msg);
         }
       } catch (e) {
         console.error('[Phone] Parse error:', e);
@@ -884,14 +886,21 @@
   const aiPlanStepCounter = document.getElementById('aiPlanStepCounter');
   const aiStepList = document.getElementById('aiStepList');
   const btnAiStop = document.getElementById('btnAiStop');
+  const aiInsecureWarning = document.getElementById('aiInsecureWarning');
 
   let currentTraceState = 'idle';
   let speechRecognition = null;
   let isListening = false;
+  let isMediaRecording = false;
+  let mediaRecorder = null;
+  let mediaChunks = [];
+  let mediaRecordingTimeout = null;
+  let activeAudioStream = null;
   let audioContext = null;
   let audioAnalyser = null;
   let audioMediaStream = null;
   let animFrameId = null;
+  let lastMicError = null;
 
   // Pulse Trace state transitions (6 states strictly required)
   function setTraceState(state, labelText) {
@@ -946,6 +955,183 @@
         pulseTraceState.textContent = 'DONE';
         break;
     }
+  }
+
+  // Check secure context and show warning if needed
+  const isSecureEnvironment = Boolean(window.isSecureContext) || window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  if (!window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    if (aiInsecureWarning) aiInsecureWarning.style.display = 'block';
+    if (aiSpeechMsg) aiSpeechMsg.textContent = 'Insecure context: microphone requires HTTPS. Please open the https:// link.';
+  }
+
+  // Human-readable error message mapping for all mic & Web Speech errors
+  function getHumanReadableMicError(err) {
+    if (!err) return 'Unknown microphone error.';
+    const name = err.name || '';
+    const message = err.message || '';
+    const errCode = err.error || '';
+
+    // Insecure context / SecurityError
+    if (name === 'SecurityError' || message.includes('insecure') || message.includes('secure context') || message.includes('HTTPS')) {
+      return 'Insecure context: microphone access requires HTTPS. Please open the https:// link.';
+    }
+
+    // getUserMedia / MediaRecorder errors
+    if (name === 'NotAllowedError' || name === 'PermissionDeniedError' || errCode === 'not-allowed') {
+      return 'Microphone permission denied. Please allow microphone access in your browser or device settings.';
+    }
+    if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+      return 'No microphone found on this device. Please connect a microphone.';
+    }
+    if (name === 'NotReadableError' || name === 'TrackStartError') {
+      return 'Microphone is busy or being used by another app. Please close other audio apps and try again.';
+    }
+    if (name === 'OverconstrainedError') {
+      return 'Microphone does not satisfy requested audio constraints.';
+    }
+    if (name === 'AbortError') {
+      return 'Microphone operation was aborted.';
+    }
+
+    // Web Speech API error codes
+    if (errCode === 'network') {
+      return 'Speech recognition network error. Switched to server transcription or use text box.';
+    }
+    if (errCode === 'no-speech') {
+      return 'No speech detected. Please try speaking closer to the microphone.';
+    }
+    if (errCode === 'audio-capture') {
+      return 'No microphone audio was captured. Check your microphone settings and try again.';
+    }
+    if (errCode === 'service-not-allowed') {
+      return 'Speech recognition service is not allowed by your browser.';
+    }
+
+    if (message) return message;
+    if (name) return `Microphone error (${name}). Please try typing instead.`;
+    return 'Microphone error. Please try typing instead.';
+  }
+
+  // Live Mic Diagnostics Updater
+  async function updateMicDiagnostics(err = null) {
+    if (err) {
+      lastMicError = {
+        name: err.name || err.error || 'Error',
+        message: err.message || err.error || String(err)
+      };
+    }
+
+    const isSecure = Boolean(window.isSecureContext);
+    const protocol = window.location.protocol;
+    const userAgent = navigator.userAgent;
+    const hasGetUserMedia = Boolean(navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function');
+    const SpeechRec = typeof window !== 'undefined' ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null;
+    const hasSpeechRec = Boolean(SpeechRec);
+
+    let permState = 'unavailable';
+    if (navigator.permissions && typeof navigator.permissions.query === 'function') {
+      try {
+        const pStatus = await navigator.permissions.query({ name: 'microphone' });
+        permState = pStatus.state;
+        pStatus.onchange = () => {
+          updateMicDiagnostics();
+        };
+      } catch (_) {
+        permState = 'unsupported';
+      }
+    }
+
+    const elSecure = document.getElementById('diagSecureContext');
+    const elProto = document.getElementById('diagProtocol');
+    const elUa = document.getElementById('diagUserAgent');
+    const elGum = document.getElementById('diagGetUserMedia');
+    const elPerm = document.getElementById('diagMicPermission');
+    const elSpeech = document.getElementById('diagSpeechRecognition');
+    const elLastErr = document.getElementById('diagLastError');
+    const badge = document.getElementById('diagStatusBadge');
+
+    if (elSecure) elSecure.textContent = isSecure ? 'true' : 'false (INSECURE)';
+    if (elProto) elProto.textContent = protocol;
+    if (elUa) elUa.textContent = userAgent;
+    if (elGum) elGum.textContent = hasGetUserMedia ? 'true' : 'false';
+    if (elPerm) elPerm.textContent = permState;
+    if (elSpeech) elSpeech.textContent = hasSpeechRec ? (window.SpeechRecognition ? 'SpeechRecognition' : 'webkitSpeechRecognition') : 'false';
+    if (elLastErr) {
+      elLastErr.textContent = lastMicError ? `${lastMicError.name}: ${lastMicError.message}` : 'None';
+    }
+
+    if (badge) {
+      if (!isSecure && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        badge.textContent = 'Insecure';
+        badge.className = 'mic-diag-status blocked';
+      } else if (lastMicError) {
+        badge.textContent = 'Error';
+        badge.className = 'mic-diag-status blocked';
+      } else if (hasGetUserMedia) {
+        badge.textContent = permState === 'granted' ? 'Active' : (permState === 'denied' ? 'Denied' : 'Ready');
+        badge.className = permState === 'denied' ? 'mic-diag-status blocked' : 'mic-diag-status safe';
+      } else if (hasSpeechRec) {
+        badge.textContent = 'WebSpeech';
+        badge.className = 'mic-diag-status confirm';
+      } else {
+        badge.textContent = 'No Mic';
+        badge.className = 'mic-diag-status blocked';
+      }
+    }
+  }
+
+  // Report mic error to UI, diagnostics, and server console
+  function reportMicError(err) {
+    const friendly = getHumanReadableMicError(err);
+    const errName = err ? (err.name || err.error || 'MicrophoneError') : 'MicrophoneError';
+    const errMsg = err ? (err.message || err.error || String(err)) : friendly;
+
+    if (aiSpeechMsg) {
+      aiSpeechMsg.textContent = friendly;
+    }
+
+    updateMicDiagnostics({ name: errName, message: friendly });
+
+    const payload = {
+      name: errName,
+      message: errMsg,
+      userFriendly: friendly,
+      secureContext: Boolean(window.isSecureContext),
+      protocol: window.location.protocol,
+      userAgent: navigator.userAgent
+    };
+
+    // Send error to server so it is printed in server console
+    if (typeof send === 'function' && ws && ws.readyState === 1 && isPaired) {
+      send({ type: 'mic_error', error: payload });
+    } else {
+      fetch('/api/ai/log-mic-error', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).catch(() => {});
+    }
+  }
+
+  // Audio MIME type selection using MediaRecorder.isTypeSupported
+  function getSupportedAudioMimeType() {
+    if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') {
+      return '';
+    }
+    // Check supported types in exact priority order: audio/webm;codecs=opus, then audio/mp4
+    if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+      return 'audio/webm;codecs=opus';
+    }
+    if (MediaRecorder.isTypeSupported('audio/mp4')) {
+      return 'audio/mp4';
+    }
+    if (MediaRecorder.isTypeSupported('audio/webm')) {
+      return 'audio/webm';
+    }
+    if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
+      return 'audio/ogg;codecs=opus';
+    }
+    return '';
   }
 
   // Render plan steps in the phone UI
@@ -1023,13 +1209,25 @@
   }
 
   // Audio analyser for real-time microphone volume modulation during 'listening'
-  async function startAudioMonitoring() {
-    if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+  async function startAudioMonitoring(existingStream = null) {
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return;
-      audioContext = new AudioCtx();
-      audioMediaStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      if (!audioContext || audioContext.state === 'closed') {
+        audioContext = new AudioCtx();
+      }
+      if (audioContext.state === 'suspended') {
+        try { await audioContext.resume(); } catch (_) {}
+      }
+
+      if (existingStream) {
+        audioMediaStream = existingStream;
+      } else if (navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function') {
+        audioMediaStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      } else {
+        return;
+      }
+
       const source = audioContext.createMediaStreamSource(audioMediaStream);
       audioAnalyser = audioContext.createAnalyser();
       audioAnalyser.fftSize = 64;
@@ -1039,7 +1237,7 @@
       const dataArray = new Uint8Array(bufferLength);
 
       function renderFrame() {
-        if (!isListening || currentTraceState !== 'listening') return;
+        if ((!isListening && !isMediaRecording) || currentTraceState !== 'listening') return;
         audioAnalyser.getByteFrequencyData(dataArray);
 
         // Calculate average volume / energy
@@ -1065,12 +1263,12 @@
     }
   }
 
-  function stopAudioMonitoring() {
+  function stopAudioMonitoring(stopTracks = false) {
     if (animFrameId) {
       cancelAnimationFrame(animFrameId);
       animFrameId = null;
     }
-    if (audioMediaStream) {
+    if (stopTracks && audioMediaStream) {
       try {
         audioMediaStream.getTracks().forEach(t => t.stop());
       } catch (_) {}
@@ -1084,17 +1282,232 @@
     }
   }
 
-  // Web Speech API initialization
+  // Web Speech API initialization (used as fallback when MediaRecorder is unavailable)
   const SpeechRecognition = typeof window !== 'undefined' ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null;
   const isSpeechSupported = !!SpeechRecognition;
 
-  if (!isSpeechSupported && aiSpeechMsg) {
+  if (!isSpeechSupported && typeof MediaRecorder === 'undefined' && aiSpeechMsg) {
     aiSpeechMsg.textContent = 'Speech recognition not supported in this browser. Please type commands below.';
   }
 
-  function startListening() {
+  // MediaRecorder Push-to-Talk Implementation (Primary Method, max 20 seconds)
+  async function startMediaRecording() {
+    // 1. Secure context check
+    if (!window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      const secErr = new Error('Insecure context: microphone requires HTTPS. Please open the https:// link.');
+      secErr.name = 'SecurityError';
+      reportMicError(secErr);
+      return;
+    }
+
+    // 2. getUserMedia capability check
+    if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+      if (isSpeechSupported) {
+        console.warn('[Phone] getUserMedia not available, using Web Speech fallback');
+        startWebSpeechListening();
+        return;
+      }
+      const gumErr = new Error('Microphone access is not supported in this browser context.');
+      gumErr.name = 'NotFoundError';
+      reportMicError(gumErr);
+      return;
+    }
+
+    try {
+      const selectedMime = getSupportedAudioMimeType();
+      activeAudioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+
+      mediaChunks = [];
+      const options = selectedMime ? { mimeType: selectedMime } : {};
+      try {
+        mediaRecorder = new MediaRecorder(activeAudioStream, options);
+      } catch (_) {
+        mediaRecorder = new MediaRecorder(activeAudioStream);
+      }
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          mediaChunks.push(e.data);
+        }
+      };
+
+      mediaRecorder.onerror = (e) => {
+        const err = e.error || new Error('MediaRecorder error');
+        reportMicError(err);
+        stopMediaRecording(false);
+      };
+
+      mediaRecorder.onstop = () => {
+        const wasRecording = isMediaRecording;
+        isMediaRecording = false;
+        isListening = false;
+        if (mediaRecordingTimeout) {
+          clearTimeout(mediaRecordingTimeout);
+          mediaRecordingTimeout = null;
+        }
+
+        if (activeAudioStream) {
+          try {
+            activeAudioStream.getTracks().forEach(t => t.stop());
+          } catch (_) {}
+          activeAudioStream = null;
+        }
+        stopAudioMonitoring();
+
+        if (btnVoiceInput) btnVoiceInput.classList.remove('listening');
+
+        if (!wasRecording) {
+          if (voiceBtnText) voiceBtnText.textContent = 'Tap to Speak';
+          setTraceState('idle');
+          return;
+        }
+
+        const finalMime = (mediaRecorder && mediaRecorder.mimeType) || selectedMime || 'audio/webm';
+        const audioBlob = new Blob(mediaChunks, { type: finalMime });
+
+        if (audioBlob.size < 50) {
+          if (aiSpeechMsg) aiSpeechMsg.textContent = 'No microphone audio was captured. Check your microphone settings and try again.';
+          setTraceState('idle');
+          if (voiceBtnText) voiceBtnText.textContent = 'Tap to Speak';
+          updateMicDiagnostics({ name: 'audio-capture', message: 'No audio captured' });
+          return;
+        }
+
+        if (voiceBtnText) voiceBtnText.textContent = 'Transcribing...';
+        setTraceState('thinking', 'Transcribing audio with Gemini...');
+        if (aiSpeechMsg) aiSpeechMsg.textContent = 'Transcribing audio with Gemini...';
+
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const resultStr = reader.result || '';
+          const base64Data = resultStr.includes(',') ? resultStr.split(',')[1] : resultStr;
+          sendAudioForTranscription(base64Data, finalMime);
+        };
+        reader.onerror = () => {
+          const rErr = new Error('Failed to read recorded audio file.');
+          reportMicError(rErr);
+          setTraceState('idle');
+          if (voiceBtnText) voiceBtnText.textContent = 'Tap to Speak';
+        };
+        reader.readAsDataURL(audioBlob);
+      };
+
+      isMediaRecording = true;
+      isListening = true;
+      mediaRecorder.start(250);
+
+      if (btnVoiceInput) btnVoiceInput.classList.add('listening');
+      if (voiceBtnText) voiceBtnText.textContent = 'Tap to Stop (20s)';
+      if (aiSpeechMsg) aiSpeechMsg.textContent = 'Listening (push-to-talk, max 20s)... Tap mic again when finished.';
+      setTraceState('listening', 'Listening...');
+      triggerHaptic('medium');
+
+      // Modulate trace visualizer with the active stream
+      startAudioMonitoring(activeAudioStream);
+
+      // Max 20-second timeout auto-stop
+      if (mediaRecordingTimeout) clearTimeout(mediaRecordingTimeout);
+      mediaRecordingTimeout = setTimeout(() => {
+        if (isMediaRecording) {
+          if (aiSpeechMsg) aiSpeechMsg.textContent = 'Max recording time (20s) reached. Transcribing...';
+          stopMediaRecording(true);
+        }
+      }, 20000);
+
+      updateMicDiagnostics();
+
+    } catch (err) {
+      reportMicError(err);
+      if (btnVoiceInput) btnVoiceInput.classList.remove('listening');
+      if (voiceBtnText) voiceBtnText.textContent = 'Tap to Speak';
+      setTraceState('idle');
+
+      // If MediaRecorder failed and Web Speech is supported, fall back
+      if (isSpeechSupported && err.name !== 'NotAllowedError' && err.name !== 'SecurityError') {
+        console.warn('[Phone] MediaRecorder failed, falling back to Web Speech API...');
+        startWebSpeechListening();
+      }
+    }
+  }
+
+  function stopMediaRecording(shouldTranscribe = true) {
+    if (mediaRecordingTimeout) {
+      clearTimeout(mediaRecordingTimeout);
+      mediaRecordingTimeout = null;
+    }
+    if (!isMediaRecording && (!mediaRecorder || mediaRecorder.state === 'inactive')) {
+      return;
+    }
+    if (!shouldTranscribe) {
+      isMediaRecording = false;
+      isListening = false;
+      if (btnVoiceInput) btnVoiceInput.classList.remove('listening');
+      if (voiceBtnText) voiceBtnText.textContent = 'Tap to Speak';
+      setTraceState('idle');
+    }
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      try {
+        mediaRecorder.stop();
+      } catch (_) {}
+    }
+  }
+
+  // Send recorded audio to server for Gemini transcription
+  function sendAudioForTranscription(base64Audio, mimeType) {
+    if (ws && ws.readyState === 1) {
+      send({
+        type: 'ai_transcribe_audio',
+        audio: base64Audio,
+        mimeType: mimeType
+      });
+    } else {
+      fetch('/api/ai/transcribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          audio: base64Audio,
+          mimeType: mimeType
+        })
+      })
+      .then(r => r.json())
+      .then(handleTranscribeResponse)
+      .catch(err => {
+        handleTranscribeResponse({ success: false, error: { message: err.message } });
+      });
+    }
+  }
+
+  // Handle server Gemini transcription response
+  function handleTranscribeResponse(msg) {
+    if (voiceBtnText) voiceBtnText.textContent = 'Tap to Speak';
+    if (btnVoiceInput) btnVoiceInput.classList.remove('listening');
+
+    if (msg.success) {
+      const transcript = (msg.transcript || '').trim();
+      if (!transcript) {
+        if (aiSpeechMsg) aiSpeechMsg.textContent = 'No speech detected. Please try speaking closer to the microphone.';
+        setTraceState('idle', 'No speech detected — Type or tap mic');
+        updateMicDiagnostics({ name: 'no-speech', message: 'No speech detected in audio' });
+      } else {
+        if (aiCommandInput) {
+          aiCommandInput.value = transcript;
+        }
+        if (aiSpeechMsg) aiSpeechMsg.textContent = 'Transcription ready! Edit above or tap Send.';
+        setTraceState('idle', 'Transcript ready — Edit or tap Send');
+        triggerHaptic('medium');
+      }
+    } else {
+      const errMsg = (msg.error && msg.error.message) ? msg.error.message : 'Audio transcription failed.';
+      reportMicError(new Error(errMsg));
+      setTraceState('idle');
+    }
+  }
+
+  // Fallback: Web Speech API Listening
+  function startWebSpeechListening() {
     if (!isSpeechSupported) {
-      if (aiSpeechMsg) aiSpeechMsg.textContent = 'Speech recognition not supported. Use text input below.';
+      if (aiSpeechMsg) aiSpeechMsg.textContent = 'Speech recognition not supported in this browser. Please type commands below.';
+      reportMicError(new Error('Speech recognition not supported in this browser. Please type commands below.'));
       return;
     }
 
@@ -1131,19 +1544,16 @@
       };
 
       speechRecognition.onerror = (e) => {
-        if (aiSpeechMsg) {
-          aiSpeechMsg.textContent = e.error === 'not-allowed'
-            ? 'Microphone permission denied. Enable microphone access in browser settings.'
-            : 'Voice input error: ' + (e.error || 'Try typing instead');
-        }
-        stopListening();
+        reportMicError(e);
+        stopWebSpeechListening();
         setTraceState('idle');
       };
 
       speechRecognition.onend = () => {
-        stopListening();
+        stopWebSpeechListening();
         if (aiCommandInput && aiCommandInput.value.trim()) {
           setTraceState('idle', 'Ready — Command captured');
+          if (aiSpeechMsg) aiSpeechMsg.textContent = 'Voice captured! Edit above or tap Send.';
         } else {
           setTraceState('idle');
         }
@@ -1151,15 +1561,15 @@
 
       speechRecognition.start();
     } catch (err) {
-      if (aiSpeechMsg) aiSpeechMsg.textContent = 'Could not start voice recognition: ' + err.message;
-      stopListening();
+      reportMicError(err);
+      stopWebSpeechListening();
       setTraceState('idle');
     }
   }
 
-  function stopListening() {
+  function stopWebSpeechListening() {
     isListening = false;
-    stopAudioMonitoring();
+    stopAudioMonitoring(true);
     if (speechRecognition) {
       try {
         speechRecognition.stop();
@@ -1170,18 +1580,48 @@
     if (voiceBtnText) voiceBtnText.textContent = 'Tap to Speak';
   }
 
-  // Voice button click handler
+  // Voice button click handler (Push-to-talk, primary MediaRecorder, fallback Web Speech)
   if (btnVoiceInput) {
     btnVoiceInput.addEventListener('click', () => {
       triggerHaptic('light');
+
+      // Stop if currently recording
+      if (isMediaRecording) {
+        stopMediaRecording(true);
+        return;
+      }
       if (isListening) {
-        stopListening();
+        stopWebSpeechListening();
         setTraceState('idle');
+        return;
+      }
+
+      // Check secure context
+      if (!window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        const secErr = new Error('Insecure context: microphone requires HTTPS. Please open the https:// link.');
+        secErr.name = 'SecurityError';
+        reportMicError(secErr);
+        return;
+      }
+
+      // Primary method: MediaRecorder
+      const hasMediaRecorder = typeof MediaRecorder !== 'undefined';
+      const hasGetUserMedia = Boolean(navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function');
+
+      if (hasMediaRecorder && hasGetUserMedia) {
+        startMediaRecording();
+      } else if (isSpeechSupported) {
+        startWebSpeechListening();
       } else {
-        startListening();
+        const noSuppErr = new Error('Speech recognition not supported in this browser. Please type commands below.');
+        noSuppErr.name = 'NotFoundError';
+        reportMicError(noSuppErr);
       }
     });
   }
+
+  // Initial diagnostics query
+  updateMicDiagnostics();
 
   // Send AI command via button or Enter
   function submitAiCommand() {
@@ -1239,7 +1679,17 @@
   window.pulseTrace = {
     setTraceState,
     getState: () => currentTraceState,
-    isSpeechSupported: () => isSpeechSupported
+    isSpeechSupported: () => isSpeechSupported,
+    updateMicDiagnostics,
+    getHumanReadableMicError,
+    getSupportedAudioMimeType,
+    getLastMicError: () => lastMicError
+  };
+  window.micDiagnostics = {
+    update: updateMicDiagnostics,
+    getErrorString: getHumanReadableMicError,
+    getSupportedMime: getSupportedAudioMimeType,
+    getLastError: () => lastMicError
   };
 
   // Start connection

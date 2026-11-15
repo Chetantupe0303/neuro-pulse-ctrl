@@ -53,6 +53,30 @@ function validateMessage(msg, currentMode = 'trackpad') {
     return { valid: true, sanitized: { type: 'ai_stop' } };
   }
 
+  if (type === 'ai_transcribe_audio') {
+    if (typeof msg.audio !== 'string' || !msg.audio.trim()) {
+      return { valid: false, error: 'Audio data must be a non-empty base64 string' };
+    }
+    return {
+      valid: true,
+      sanitized: {
+        type: 'ai_transcribe_audio',
+        audio: msg.audio.trim(),
+        mimeType: typeof msg.mimeType === 'string' && msg.mimeType.trim() ? msg.mimeType.trim() : 'audio/webm'
+      }
+    };
+  }
+
+  if (type === 'mic_error') {
+    return {
+      valid: true,
+      sanitized: {
+        type: 'mic_error',
+        error: typeof msg.error === 'object' && msg.error ? msg.error : { message: String(msg.error || 'Unknown mic error') }
+      }
+    };
+  }
+
   // Check if current event type is permitted under active mode
   if (currentMode === 'trackpad') {
     if (type !== 'move' && type !== 'click' && type !== 'scroll') {

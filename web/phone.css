@@ -831,6 +831,113 @@ html, body {
   border-color: var(--accent);
 }
 
+/* Insecure Context Warning */
+.ai-insecure-warning {
+  background: var(--surface);
+  border: 1px solid var(--text-primary);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  line-height: 1.4;
+  margin-bottom: var(--space-2);
+}
+
+/* Mic Diagnostics Panel (Small, Collapsible) */
+.mic-diagnostics-panel {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+}
+
+.mic-diagnostics-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  cursor: pointer;
+  background: var(--surface-subtle);
+  user-select: none;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.mic-diagnostics-header::-webkit-details-marker {
+  display: none;
+}
+
+.mic-diag-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.mic-diag-status {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+}
+
+.mic-diag-status.safe {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.mic-diag-status.confirm {
+  border-color: var(--border-strong);
+  color: var(--text-secondary);
+}
+
+.mic-diag-status.blocked {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+  background: var(--surface-active);
+}
+
+.mic-diagnostics-body {
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.mic-diag-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-2);
+  line-height: 1.4;
+}
+
+.mic-diag-lbl {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.mic-diag-val {
+  text-align: right;
+  word-break: break-word;
+}
+
+.mic-diag-wrap {
+  max-width: 190px;
+  font-size: 10px;
+}
+
+.mic-diag-err {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
 /* AI Plan Section (Stages 8-11) */
 .ai-plan-section {
   display: flex;

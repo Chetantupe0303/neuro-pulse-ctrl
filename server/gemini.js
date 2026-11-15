@@ -216,6 +216,127 @@ class GeminiService {
       error: this.mapError(lastError)
     };
   }
+
+  /**
+   * Transcribe spoken audio using Gemini multimodal capabilities
+   * @param {Object} params
+   * @param {string} params.audioBase64 - Base64 encoded audio bytes
+   * @param {string} [params.mimeType='audio/webm'] - Audio MIME type
+   * @param {string} [params.sessionId] - Session ID for rate limiting
+   * @returns {Promise<{ success: boolean, transcript?: string, error?: { code: string, message: string } }>}
+   */
+  async transcribeAudio({ audioBase64, mimeType = 'audio/webm', sessionId }) {
+    if (!audioBase64) {
+      return {
+        success: false,
+        error: { code: 'INVALID_AUDIO', message: 'No audio data received for transcription.' }
+      };
+    }
+
+    // 1. Check Rate Limiter
+    if (sessionId) {
+      const rateCheck = this.rateLimiter.checkLimit(sessionId);
+      if (!rateCheck.allowed) {
+        return {
+          success: false,
+          error: {
+            code: ErrorCodes.RATE_LIMITED,
+            message: `Rate limit reached. Max 10 requests/min. Retry after ${Math.ceil(rateCheck.retryAfterMs / 1000)}s.`
+          }
+        };
+      }
+    }
+
+    // 2. Check API Key
+    if (!this.apiKey && !this.mockClient) {
+      return {
+        success: false,
+        error: this.mapError(new Error('MISSING_KEY'))
+      };
+    }
+
+    // Clean MIME type for Gemini inlineData (strip codec parameters if present)
+    const cleanMimeType = (mimeType || 'audio/webm').split(';')[0].trim();
+
+    // 3. Execution with 1 retry
+    let lastError = null;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        if (sessionId) {
+          this.rateLimiter.recordRequest(sessionId);
+        }
+
+        const client = this.getClient();
+        const callPromise = (async () => {
+          const contents = [
+            {
+              text: 'Transcribe the following spoken English or audio input accurately and verbatim. Return ONLY the plain transcription text without quotation marks, bullet points, markdown formatting, timestamps, or conversational commentary. If there is no discernible speech or only background silence, output nothing (empty string).'
+            },
+            {
+              inlineData: {
+                mimeType: cleanMimeType,
+                data: audioBase64
+              }
+            }
+          ];
+
+          if (this.mockClient) {
+            if (typeof this.mockClient.transcribeAudio === 'function') {
+              return await this.mockClient.transcribeAudio({ audioBase64, mimeType: cleanMimeType });
+            }
+            if (typeof this.mockClient.generateContent === 'function') {
+              return await this.mockClient.generateContent({ contents, prompt: 'transcribe', audioBase64, mimeType: cleanMimeType });
+            }
+          }
+
+          const response = await client.models.generateContent({
+            model: this.modelName,
+            contents
+          });
+
+          return response;
+        })();
+
+        const response = await this.withTimeout(callPromise, this.timeoutMs);
+
+        // Extract raw text
+        let rawText = '';
+        if (typeof response === 'string') {
+          rawText = response;
+        } else if (response && typeof response.text === 'function') {
+          rawText = response.text();
+        } else if (response && response.text) {
+          rawText = response.text;
+        } else if (response && response.candidates && response.candidates[0]?.content?.parts) {
+          rawText = response.candidates[0].content.parts.map(p => p.text || '').join('');
+        }
+
+        let transcript = rawText.trim();
+        // Remove surrounding quotes if model wrapped output in quotes
+        if ((transcript.startsWith('"') && transcript.endsWith('"')) || (transcript.startsWith("'") && transcript.endsWith("'"))) {
+          transcript = transcript.slice(1, -1).trim();
+        }
+
+        return {
+          success: true,
+          transcript
+        };
+      } catch (err) {
+        lastError = err;
+        if (err.code === ErrorCodes.MISSING_KEY) {
+          break;
+        }
+        if (attempt === 1) {
+          await new Promise(r => setTimeout(r, 400));
+        }
+      }
+    }
+
+    return {
+      success: false,
+      error: this.mapError(lastError)
+    };
+  }
 }
 
 module.exports = new GeminiService();

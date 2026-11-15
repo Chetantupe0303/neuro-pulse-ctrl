@@ -197,6 +197,11 @@
               <span class="ai-tagline-text">"Other AI agents ask you to trust them. PulseCtrl AI checks."</span>
             </div>
 
+            <!-- Insecure Context Warning (HTTPS required for mic) -->
+            <div id="aiInsecureWarning" class="ai-insecure-warning" style="display: none;">
+              ⚠️ Insecure context: microphone requires HTTPS. Please open the https:// link.
+            </div>
+
             <!-- Signature Element: Pulse Trace -->
             <div class="pulse-trace-box card-subtle" id="pulseTraceContainer">
               <div class="pulse-trace-canvas-wrap">
@@ -246,6 +251,23 @@
                   <button type="button" class="demo-pill-btn" data-command="Open vscode and show files">💻 Open VSCode</button>
                 </div>
               </div>
+
+              <!-- Mic Diagnostics Panel (Small, Collapsible) -->
+              <details class="mic-diagnostics-panel" id="micDiagnosticsPanel">
+                <summary class="mic-diagnostics-header">
+                  <span class="mic-diag-title">Mic diagnostics</span>
+                  <span class="mic-diag-status" id="diagStatusBadge">Checking...</span>
+                </summary>
+                <div class="mic-diagnostics-body mono-log" id="micDiagnosticsBody">
+                  <div class="mic-diag-row"><span class="mic-diag-lbl">Secure Context:</span><span id="diagSecureContext" class="mic-diag-val">-</span></div>
+                  <div class="mic-diag-row"><span class="mic-diag-lbl">Protocol:</span><span id="diagProtocol" class="mic-diag-val">-</span></div>
+                  <div class="mic-diag-row"><span class="mic-diag-lbl">User Agent:</span><span id="diagUserAgent" class="mic-diag-val mic-diag-wrap">-</span></div>
+                  <div class="mic-diag-row"><span class="mic-diag-lbl">getUserMedia:</span><span id="diagGetUserMedia" class="mic-diag-val">-</span></div>
+                  <div class="mic-diag-row"><span class="mic-diag-lbl">Mic Permission:</span><span id="diagMicPermission" class="mic-diag-val">-</span></div>
+                  <div class="mic-diag-row"><span class="mic-diag-lbl">SpeechRecognition:</span><span id="diagSpeechRecognition" class="mic-diag-val">-</span></div>
+                  <div class="mic-diag-row"><span class="mic-diag-lbl">Last Error:</span><span id="diagLastError" class="mic-diag-val mic-diag-err">None</span></div>
+                </div>
+              </details>
             </div>
 
             <!-- Plan Step List & Execution Section (Stages 8-11) -->

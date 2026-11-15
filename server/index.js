@@ -177,6 +177,46 @@ app.get('/api/ai/test', (req, res) => {
   });
 });
 
+app.post('/api/ai/transcribe', async (req, res) => {
+  const { audio, mimeType, sessionId } = req.body || {};
+  if (!audio) {
+    return res.status(400).json({ success: false, error: { message: 'Missing audio data' } });
+  }
+  console.log(`[Server] 🎙 Processing audio transcription request (${mimeType || 'audio/webm'})...`);
+  try {
+    const result = await geminiService.transcribeAudio({
+      audioBase64: audio,
+      mimeType: mimeType || 'audio/webm',
+      sessionId: sessionId || 'http-client'
+    });
+    if (!result.success) {
+      console.error('[Server] 🎙 Audio transcription failed:', result.error);
+      return res.status(500).json(result);
+    }
+    console.log(`[Server] 🎙 Transcription successful: "${result.transcript}"`);
+    res.json(result);
+  } catch (err) {
+    console.error('[Server] 🎙 Transcription error:', err);
+    res.status(500).json({ success: false, error: { message: err.message || 'Transcription error' } });
+  }
+});
+
+app.post('/api/ai/log-mic-error', (req, res) => {
+  const err = req.body || {};
+  console.error('');
+  console.error('='.repeat(55));
+  console.error('[Server] 🎤 MICROPHONE ERROR REPORT:');
+  console.error(`  Error Name:     ${err.name || 'UnknownError'}`);
+  console.error(`  Error Message:  ${err.message || '-'}`);
+  console.error(`  User Friendly:  ${err.userFriendly || '-'}`);
+  console.error(`  Secure Context: ${err.secureContext !== undefined ? err.secureContext : 'unknown'}`);
+  console.error(`  Protocol:       ${err.protocol || '-'}`);
+  console.error(`  User Agent:     ${err.userAgent || '-'}`);
+  console.error('='.repeat(55));
+  console.error('');
+  res.json({ status: 'logged' });
+});
+
 wss.on('connection', async (ws, req) => {
   const url = new URL(req.url, 'http://localhost');
   const role = url.searchParams.get('role');
@@ -446,6 +486,52 @@ function bindPhoneEventHandlers(ws, session) {
         console.error('[Server] AI execution error:', err);
         send(ws, { type: 'ai_plan_error', error: { message: err.message } });
       });
+    } else if (event.type === 'ai_transcribe_audio') {
+      (async () => {
+        try {
+          console.log(`[Server] 🎙 Received audio from phone (${session.id}) for transcription (${event.mimeType || 'audio/webm'}, base64 len: ${event.audio.length})...`);
+          const result = await geminiService.transcribeAudio({
+            audioBase64: event.audio,
+            mimeType: event.mimeType || 'audio/webm',
+            sessionId: session.id
+          });
+          if (result.success) {
+            console.log(`[Server] 🎙 Transcription for ${session.id}: "${result.transcript}"`);
+            send(ws, {
+              type: 'ai_transcribe_response',
+              success: true,
+              transcript: result.transcript
+            });
+          } else {
+            console.error(`[Server] 🎙 Transcription failed for ${session.id}:`, result.error);
+            send(ws, {
+              type: 'ai_transcribe_response',
+              success: false,
+              error: result.error
+            });
+          }
+        } catch (err) {
+          console.error(`[Server] 🎙 Transcription exception for ${session.id}:`, err);
+          send(ws, {
+            type: 'ai_transcribe_response',
+            success: false,
+            error: { message: err.message || 'Server transcription failed' }
+          });
+        }
+      })();
+    } else if (event.type === 'mic_error') {
+      const err = event.error || {};
+      console.error('');
+      console.error('='.repeat(55));
+      console.error(`[Server] 🎤 MICROPHONE ERROR REPORT from Phone (${session.id}):`);
+      console.error(`  Error Name:     ${err.name || 'UnknownError'}`);
+      console.error(`  Error Message:  ${err.message || '-'}`);
+      console.error(`  User Friendly:  ${err.userFriendly || '-'}`);
+      console.error(`  Secure Context: ${err.secureContext !== undefined ? err.secureContext : 'unknown'}`);
+      console.error(`  Protocol:       ${err.protocol || '-'}`);
+      console.error(`  User Agent:     ${err.userAgent || '-'}`);
+      console.error('='.repeat(55));
+      console.error('');
     } else {
       send(session.helperWs, event);
     }
@@ -458,6 +544,20 @@ function bindPhoneEventHandlers(ws, session) {
       setTimeout(() => {
         if (!session.phoneWs && session.status === 'connected') sessionManager.disconnectSession(session.id, 'phone');
       }, 2000);
+    }
+  });
+}
+
+if (config.httpsEnabled && server && typeof server.on === 'function') {
+  server.on('clientError', (err, socket) => {
+    if (err.code === 'ERR_SSL_HTTP_REQUEST' && !socket.destroyed) {
+      socket.end(
+        'HTTP/1.1 400 Bad Request\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n\r\n' +
+        '<!DOCTYPE html><html><body style="font-family:sans-serif;padding:24px;">' +
+        '<h2>HTTPS Required</h2>' +
+        '<p>Microphone access requires a secure HTTPS connection. Please open the <strong>https://</strong> link.</p>' +
+        '</body></html>'
+      );
     }
   });
 }
@@ -484,6 +584,9 @@ if (require.main === module) {
       console.log(`  ⚡ PulseCtrl Server is running (${protocol.toUpperCase()})!`);
       console.log(`  Local:   ${protocol}://localhost:${activePort}`);
       console.log(`  Network: ${protocol}://${lanIp}:${activePort}`);
+      if (!config.httpsEnabled) {
+        console.warn('  ⚠️  WARNING: HTTPS is disabled! Mobile browsers require HTTPS for microphone access. Open the https:// link or set ENABLE_HTTPS=true.');
+      }
       console.log('='.repeat(55));
       console.log('');
 
