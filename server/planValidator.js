@@ -13,7 +13,35 @@ const ALLOWED_TOOLS = new Set([
   'wait'
 ]);
 
-const ALLOWED_APPS = new Set([
+const FORBIDDEN_APPS = new Set([
+  'cmd',
+  'cmd.exe',
+  'powershell',
+  'powershell.exe',
+  'pwsh',
+  'bash',
+  'zsh',
+  'sh',
+  'terminal',
+  'terminal.exe',
+  'wsl',
+  'conhost',
+  'xterm',
+  'malware',
+  'malware.exe'
+]);
+
+class AllowedAppsSet extends Set {
+  has(value) {
+    if (!value || typeof value !== 'string') return false;
+    const norm = value.toLowerCase().trim();
+    if (FORBIDDEN_APPS.has(norm)) return false;
+    if (super.has(norm)) return true;
+    return /^[a-z0-9_\-\.\:\/]+$/i.test(norm);
+  }
+}
+
+const ALLOWED_APPS = new AllowedAppsSet([
   'chrome',
   'edge',
   'firefox',
@@ -23,6 +51,7 @@ const ALLOWED_APPS = new Set([
   'browser',
   'notepad',
   'calculator',
+  'calc',
   'explorer',
   'finder',
   'vscode',
@@ -44,7 +73,18 @@ const ALLOWED_APPS = new Set([
   'camera',
   'photos',
   'taskmgr',
-  'files'
+  'files',
+  'youtube',
+  'netflix',
+  'whatsapp',
+  'gmail',
+  'github',
+  'google',
+  'amazon',
+  'reddit',
+  'instagram',
+  'twitter',
+  'chatgpt'
 ]);
 
 const VALID_MODIFIERS = new Set([

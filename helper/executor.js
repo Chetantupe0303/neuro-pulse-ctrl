@@ -18,7 +18,7 @@ const APP_LAUNCHERS = {
     browser: { cmd: 'cmd.exe', args: ['/c', 'start', 'chrome'] },
     edge: { cmd: 'cmd.exe', args: ['/c', 'start', 'msedge'] },
     firefox: { cmd: 'cmd.exe', args: ['/c', 'start', 'firefox'] },
-    brave: { cmd: 'cmd.exe', args: ['/c', 'start', 'brave'] },
+    brave: { cmd: 'cmd.exe', args: ['/c', 'start brave || start chrome || start msedge'] },
     opera: { cmd: 'cmd.exe', args: ['/c', 'start', 'opera'] },
     vscode: { cmd: 'code.cmd', args: [], shell: true },
     code: { cmd: 'code.cmd', args: [], shell: true },
@@ -38,7 +38,18 @@ const APP_LAUNCHERS = {
     telegram: { cmd: 'cmd.exe', args: ['/c', 'start', 'telegram:'] },
     zoom: { cmd: 'cmd.exe', args: ['/c', 'start', 'zoom:'] },
     teams: { cmd: 'cmd.exe', args: ['/c', 'start', 'msteams:'] },
-    steam: { cmd: 'cmd.exe', args: ['/c', 'start', 'steam:'] }
+    steam: { cmd: 'cmd.exe', args: ['/c', 'start', 'steam:'] },
+    youtube: { cmd: 'cmd.exe', args: ['/c', 'start https://www.youtube.com'] },
+    netflix: { cmd: 'cmd.exe', args: ['/c', 'start https://www.netflix.com'] },
+    whatsapp: { cmd: 'cmd.exe', args: ['/c', 'start https://web.whatsapp.com'] },
+    gmail: { cmd: 'cmd.exe', args: ['/c', 'start https://mail.google.com'] },
+    github: { cmd: 'cmd.exe', args: ['/c', 'start https://github.com'] },
+    google: { cmd: 'cmd.exe', args: ['/c', 'start https://www.google.com'] },
+    amazon: { cmd: 'cmd.exe', args: ['/c', 'start https://www.amazon.com'] },
+    reddit: { cmd: 'cmd.exe', args: ['/c', 'start https://www.reddit.com'] },
+    instagram: { cmd: 'cmd.exe', args: ['/c', 'start https://www.instagram.com'] },
+    twitter: { cmd: 'cmd.exe', args: ['/c', 'start https://twitter.com'] },
+    chatgpt: { cmd: 'cmd.exe', args: ['/c', 'start https://chatgpt.com'] }
   },
   darwin: {
     calculator: { cmd: 'open', args: ['-a', 'Calculator'] },
@@ -48,6 +59,7 @@ const APP_LAUNCHERS = {
     files: { cmd: 'open', args: ['-a', 'Finder'] },
     chrome: { cmd: 'open', args: ['-a', 'Google Chrome'] },
     browser: { cmd: 'open', args: ['-a', 'Google Chrome'] },
+    brave: { cmd: 'open', args: ['-a', 'Brave Browser'] },
     edge: { cmd: 'open', args: ['-a', 'Microsoft Edge'] },
     firefox: { cmd: 'open', args: ['-a', 'Firefox'] },
     safari: { cmd: 'open', args: ['-a', 'Safari'] },
@@ -55,7 +67,12 @@ const APP_LAUNCHERS = {
     code: { cmd: 'open', args: ['-a', 'Visual Studio Code'] },
     spotify: { cmd: 'open', args: ['-a', 'Spotify'] },
     slack: { cmd: 'open', args: ['-a', 'Slack'] },
-    discord: { cmd: 'open', args: ['-a', 'Discord'] }
+    discord: { cmd: 'open', args: ['-a', 'Discord'] },
+    youtube: { cmd: 'open', args: ['https://www.youtube.com'] },
+    netflix: { cmd: 'open', args: ['https://www.netflix.com'] },
+    whatsapp: { cmd: 'open', args: ['https://web.whatsapp.com'] },
+    gmail: { cmd: 'open', args: ['https://mail.google.com'] },
+    github: { cmd: 'open', args: ['https://github.com'] }
   },
   linux: {
     calculator: { cmd: 'gnome-calculator', args: [] },
@@ -65,13 +82,37 @@ const APP_LAUNCHERS = {
     files: { cmd: 'xdg-open', args: [process.env.HOME || '/'] },
     chrome: { cmd: 'google-chrome', args: [] },
     browser: { cmd: 'google-chrome', args: [] },
+    brave: { cmd: 'brave-browser', args: [] },
     edge: { cmd: 'microsoft-edge', args: [] },
     firefox: { cmd: 'firefox', args: [] },
     vscode: { cmd: 'code', args: [] },
     code: { cmd: 'code', args: [] },
-    spotify: { cmd: 'spotify', args: [] }
+    spotify: { cmd: 'spotify', args: [] },
+    youtube: { cmd: 'xdg-open', args: ['https://www.youtube.com'] },
+    netflix: { cmd: 'xdg-open', args: ['https://www.netflix.com'] },
+    whatsapp: { cmd: 'xdg-open', args: ['https://web.whatsapp.com'] },
+    gmail: { cmd: 'xdg-open', args: ['https://mail.google.com'] },
+    github: { cmd: 'xdg-open', args: ['https://github.com'] }
   }
 };
+
+const FORBIDDEN_APPS = new Set([
+  'cmd',
+  'cmd.exe',
+  'powershell',
+  'powershell.exe',
+  'pwsh',
+  'bash',
+  'zsh',
+  'sh',
+  'terminal',
+  'terminal.exe',
+  'wsl',
+  'conhost',
+  'xterm',
+  'malware',
+  'malware.exe'
+]);
 
 /**
  * Safely launch an allowlisted application or web URL
@@ -86,9 +127,13 @@ function launchApp(appName, platform = process.platform, url = null) {
   if (url && typeof url === 'string') {
     const cleanUrl = url.trim();
     if (platform === 'win32') {
-      const browserCmd = normApp === 'edge' ? 'msedge' : 'chrome';
+      const browserCmd = normApp === 'brave'
+        ? `start brave "${cleanUrl}" || start chrome "${cleanUrl}" || start msedge "${cleanUrl}"`
+        : (normApp === 'edge' ? `start msedge "${cleanUrl}"`
+        : (normApp === 'firefox' ? `start firefox "${cleanUrl}" || start chrome "${cleanUrl}"`
+        : `start chrome "${cleanUrl}" || start msedge "${cleanUrl}"`));
       try {
-        const child = child_process.spawn('cmd.exe', ['/c', 'start', browserCmd, cleanUrl], {
+        const child = child_process.spawn('cmd.exe', ['/c', browserCmd], {
           detached: true,
           stdio: 'ignore'
         });
@@ -113,23 +158,67 @@ function launchApp(appName, platform = process.platform, url = null) {
     }
   }
 
-  const osTable = APP_LAUNCHERS[platform] || APP_LAUNCHERS.win32;
-  const launcher = osTable[normApp];
-
-  if (!launcher) {
+  // Reject explicitly forbidden apps / shells / malware
+  if (
+    FORBIDDEN_APPS.has(normApp) ||
+    normApp.includes('malware') ||
+    normApp.includes('cmd') ||
+    normApp.includes('powershell')
+  ) {
     throw new Error(`Application "${normApp}" is not allowlisted for platform "${platform}".`);
   }
 
-  try {
-    const child = child_process.spawn(launcher.cmd, launcher.args, {
-      detached: true,
-      stdio: 'ignore',
-      shell: launcher.shell || false
-    });
-    child.unref();
-    return { success: true, app: normApp };
-  } catch (err) {
-    throw new Error(`Failed to launch ${normApp}: ${err.message}`);
+  const osTable = APP_LAUNCHERS[platform] || APP_LAUNCHERS.win32;
+  const launcher = osTable[normApp];
+
+  if (launcher) {
+    try {
+      const child = child_process.spawn(launcher.cmd, launcher.args, {
+        detached: true,
+        stdio: 'ignore',
+        shell: launcher.shell || false
+      });
+      child.unref();
+      return { success: true, app: normApp };
+    } catch (err) {
+      throw new Error(`Failed to launch ${normApp}: ${err.message}`);
+    }
+  }
+
+  // Fallback: Launch any other desktop application present on the laptop
+  if (platform === 'win32') {
+    try {
+      const child = child_process.spawn('cmd.exe', ['/c', 'start', '', normApp], {
+        detached: true,
+        stdio: 'ignore'
+      });
+      child.unref();
+      return { success: true, app: normApp };
+    } catch (err) {
+      throw new Error(`Failed to launch ${normApp}: ${err.message}`);
+    }
+  } else if (platform === 'darwin') {
+    try {
+      const child = child_process.spawn('open', ['-a', normApp], {
+        detached: true,
+        stdio: 'ignore'
+      });
+      child.unref();
+      return { success: true, app: normApp };
+    } catch (err) {
+      throw new Error(`Failed to launch ${normApp}: ${err.message}`);
+    }
+  } else {
+    try {
+      const child = child_process.spawn(normApp, [], {
+        detached: true,
+        stdio: 'ignore'
+      });
+      child.unref();
+      return { success: true, app: normApp };
+    } catch (err) {
+      throw new Error(`Failed to launch ${normApp}: ${err.message}`);
+    }
   }
 }
 
