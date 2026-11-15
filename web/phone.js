@@ -901,6 +901,8 @@
   let audioMediaStream = null;
   let animFrameId = null;
   let lastMicError = null;
+  let speechDetected = false;
+  let lastSpeechTime = 0;
 
   // Pulse Trace state transitions (6 states strictly required)
   function setTraceState(state, labelText) {
@@ -1248,6 +1250,16 @@
         const avg = sum / bufferLength; // 0 to 255
         const amp = Math.min(20, Math.max(2, (avg / 255) * 22));
 
+        // Automatic voice activity & silence detection
+        if (avg > 16) {
+          speechDetected = true;
+          lastSpeechTime = Date.now();
+        } else if (speechDetected && isMediaRecording && (Date.now() - lastSpeechTime > 1800)) {
+          speechDetected = false;
+          stopMediaRecording(true);
+          return;
+        }
+
         // Dynamically modulate path amplitude
         if (pulseTracePath) {
           pulseTracePath.setAttribute(
@@ -1392,27 +1404,29 @@
         reader.readAsDataURL(audioBlob);
       };
 
+      speechDetected = false;
+      lastSpeechTime = Date.now();
       isMediaRecording = true;
       isListening = true;
       mediaRecorder.start(250);
 
       if (btnVoiceInput) btnVoiceInput.classList.add('listening');
-      if (voiceBtnText) voiceBtnText.textContent = 'Tap to Stop (20s)';
-      if (aiSpeechMsg) aiSpeechMsg.textContent = 'Listening (push-to-talk, max 20s)... Tap mic again when finished.';
+      if (voiceBtnText) voiceBtnText.textContent = 'Listening...';
+      if (aiSpeechMsg) aiSpeechMsg.textContent = 'Listening... Speak your command, then tap when done.';
       setTraceState('listening', 'Listening...');
       triggerHaptic('medium');
 
       // Modulate trace visualizer with the active stream
       startAudioMonitoring(activeAudioStream);
 
-      // Max 20-second timeout auto-stop
+      // Background safety timeout
       if (mediaRecordingTimeout) clearTimeout(mediaRecordingTimeout);
       mediaRecordingTimeout = setTimeout(() => {
         if (isMediaRecording) {
-          if (aiSpeechMsg) aiSpeechMsg.textContent = 'Max recording time (20s) reached. Transcribing...';
+          if (aiSpeechMsg) aiSpeechMsg.textContent = 'Processing command...';
           stopMediaRecording(true);
         }
-      }, 20000);
+      }, 30000);
 
       updateMicDiagnostics();
 
@@ -1492,9 +1506,9 @@
         if (aiCommandInput) {
           aiCommandInput.value = transcript;
         }
-        if (aiSpeechMsg) aiSpeechMsg.textContent = 'Transcription ready! Edit above or tap Send.';
-        setTraceState('idle', 'Transcript ready — Edit or tap Send');
         triggerHaptic('medium');
+        // Automatically dispatch command to server so it performs operations on laptop
+        submitAiCommand();
       }
     } else {
       const errMsg = (msg.error && msg.error.message) ? msg.error.message : 'Audio transcription failed.';
@@ -1552,8 +1566,9 @@
       speechRecognition.onend = () => {
         stopWebSpeechListening();
         if (aiCommandInput && aiCommandInput.value.trim()) {
-          setTraceState('idle', 'Ready — Command captured');
-          if (aiSpeechMsg) aiSpeechMsg.textContent = 'Voice captured! Edit above or tap Send.';
+          triggerHaptic('medium');
+          // Automatically dispatch command to server so it performs operations on laptop
+          submitAiCommand();
         } else {
           setTraceState('idle');
         }

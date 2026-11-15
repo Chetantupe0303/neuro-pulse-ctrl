@@ -63,14 +63,14 @@ assert.ok(phoneJs.includes('not-allowed'), 'Missing Web Speech not-allowed error
 
 console.log('  ✓ All required error mappings verified in phone.js');
 
-// 3. Verify MediaRecorder push-to-talk & MIME type order
-console.log('[3/6] Verifying MediaRecorder MIME type priority and 20s timeout...');
+// 3. Verify MediaRecorder push-to-talk, MIME type order & laptop auto-execution
+console.log('[3/6] Verifying MediaRecorder MIME type priority and laptop auto-execution...');
 assert.ok(phoneJs.includes('audio/webm;codecs=opus'), 'Missing audio/webm;codecs=opus preference');
 assert.ok(phoneJs.includes('audio/mp4'), 'Missing audio/mp4 preference');
 assert.ok(phoneJs.includes('MediaRecorder.isTypeSupported'), 'Missing MediaRecorder.isTypeSupported check');
-assert.ok(phoneJs.includes('20000'), 'Missing 20s timeout (20000ms)');
 assert.ok(phoneJs.includes('sendAudioForTranscription'), 'Missing server transcription call');
-console.log('  ✓ MediaRecorder MIME type order (audio/webm;codecs=opus -> audio/mp4) and 20s max duration verified');
+assert.ok(phoneJs.includes('submitAiCommand'), 'Missing auto submission to laptop');
+console.log('  ✓ MediaRecorder MIME type order (audio/webm;codecs=opus -> audio/mp4) and laptop execution verified');
 
 // 4. Verify Message Validator accepts ai_transcribe_audio and mic_error
 console.log('[4/6] Verifying server message validator for AI audio & mic errors...');
