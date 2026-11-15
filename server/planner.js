@@ -56,7 +56,14 @@ STRICT PLANNER RULES:
      * Step 5: type_text for password
      * Step 6: press_key "enter" to submit
 
-4. KEYBOARD NAVIGATION & SHORTCUTS:
+4. CLOSING APPLICATIONS & WINDOWS:
+   - When the user asks to "close", "quit", "exit", or "shut down" an application or window (e.g. "close vscode", "close the camera", "close chrome", "close window"):
+     * On Windows & Linux: use press_key with { "key": "f4", "modifiers": ["alt"] }
+     * On macOS: use press_key with { "key": "q", "modifiers": ["command"] }
+     * To close a tab or document: use press_key with { "key": "w", "modifiers": ["${shortcutModifier}"] }
+     * NEVER use open_app when the user is asking to close, quit, or exit an application.
+
+5. KEYBOARD NAVIGATION & SHORTCUTS:
    - Enter/Submit: press_key "enter"
    - Switch field: press_key "tab"
    - Escape/Dismiss: press_key "escape"
@@ -105,6 +112,34 @@ function generateFallbackPlan(command, osName = 'win32') {
   // Prohibit shells or destructive commands
   if (/\b(cmd(\.exe)?|powershell|pwsh|bash|zsh|wsl|terminal|del\s+\/|rm\s+-rf|format\s+[a-z]:)\b/i.test(norm)) {
     return null;
+  }
+
+  // 1. Close / Quit application or window intent
+  if (/\b(close|quit|exit|shut\s*down|terminate|kill)\b/i.test(norm)) {
+    const isMac = osName === 'darwin';
+    const appMatch = norm.match(/\b(?:close|quit|exit|shut\s*down|terminate|kill)\s+(?:the\s+)?([a-z0-9_\-\.]+)/i);
+    let appName = appMatch && appMatch[1] ? appMatch[1].toLowerCase() : 'window';
+    if (['window', 'windows', 'app', 'application', 'it', 'this', 'that', 'the'].includes(appName)) {
+      appName = 'active window';
+    }
+
+    if (isMac) {
+      return {
+        summary: `Quit ${appName}`,
+        steps: [
+          { id: 'step-1', tool: 'press_key', args: { key: 'q', modifiers: ['command'] }, description: `Press Cmd+Q to quit ${appName}` }
+        ],
+        reason: null
+      };
+    } else {
+      return {
+        summary: `Close ${appName}`,
+        steps: [
+          { id: 'step-1', tool: 'press_key', args: { key: 'f4', modifiers: ['alt'] }, description: `Press Alt+F4 to close ${appName}` }
+        ],
+        reason: null
+      };
+    }
   }
 
   // 1. Direct URL or website domain
@@ -178,18 +213,24 @@ function generateFallbackPlan(command, osName = 'win32') {
     };
   }
 
-  // 4. "Open <app>" or "Launch <app>"
-  const openMatch = norm.match(/(?:open|launch|start|run)\s+(?:the\s+)?([a-z0-9_\-\.]+)/i);
+  // 5. "Open <app>" or "Launch <app>"
+  const openMatch = norm.match(/(?:^|\b)(?:open|launch|start|run)\s+(?:the\s+)?([a-z0-9_\-\.]+)/i);
   if (openMatch) {
     let targetApp = openMatch[1].toLowerCase().trim();
     if (targetApp === 'the') targetApp = 'brave';
-    return {
-      summary: `Open ${targetApp}`,
-      steps: [
-        { id: 'step-1', tool: 'open_app', args: { app: targetApp }, description: `Open ${targetApp}` }
-      ],
-      reason: null
-    };
+    const STOPWORDS = new Set([
+      'in', 'to', 'at', 'on', 'for', 'with', 'a', 'an', 'the', 'my', 'this', 'that',
+      'window', 'windows', 'app', 'application', 'already', 'and', 'or', 'of', 'is'
+    ]);
+    if (!STOPWORDS.has(targetApp)) {
+      return {
+        summary: `Open ${targetApp}`,
+        steps: [
+          { id: 'step-1', tool: 'open_app', args: { app: targetApp }, description: `Open ${targetApp}` }
+        ],
+        reason: null
+      };
+    }
   }
 
   return null;

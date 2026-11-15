@@ -114,6 +114,11 @@ const FORBIDDEN_APPS = new Set([
   'malware.exe'
 ]);
 
+const STOPWORDS = new Set([
+  'in', 'to', 'at', 'on', 'for', 'with', 'a', 'an', 'the', 'my', 'this', 'that',
+  'window', 'windows', 'app', 'application', 'already', 'and', 'or', 'of', 'is'
+]);
+
 /**
  * Safely launch an allowlisted application or web URL
  * @param {string} appName
@@ -122,6 +127,17 @@ const FORBIDDEN_APPS = new Set([
  */
 function launchApp(appName, platform = process.platform, url = null) {
   const normApp = String(appName || '').toLowerCase().trim();
+
+  // Reject explicitly forbidden apps / shells / malware / stopwords
+  if (
+    FORBIDDEN_APPS.has(normApp) ||
+    STOPWORDS.has(normApp) ||
+    normApp.includes('malware') ||
+    normApp.includes('cmd') ||
+    normApp.includes('powershell')
+  ) {
+    throw new Error(`Application "${normApp}" is not allowlisted for platform "${platform}".`);
+  }
 
   // If a URL is specified, launch directly in the requested browser or default browser
   if (url && typeof url === 'string') {

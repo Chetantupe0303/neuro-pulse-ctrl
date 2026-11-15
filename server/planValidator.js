@@ -31,11 +31,16 @@ const FORBIDDEN_APPS = new Set([
   'malware.exe'
 ]);
 
+const STOPWORDS = new Set([
+  'in', 'to', 'at', 'on', 'for', 'with', 'a', 'an', 'the', 'my', 'this', 'that',
+  'window', 'windows', 'app', 'application', 'already', 'and', 'or', 'of', 'is'
+]);
+
 class AllowedAppsSet extends Set {
   has(value) {
     if (!value || typeof value !== 'string') return false;
     const norm = value.toLowerCase().trim();
-    if (FORBIDDEN_APPS.has(norm)) return false;
+    if (FORBIDDEN_APPS.has(norm) || STOPWORDS.has(norm)) return false;
     if (super.has(norm)) return true;
     return /^[a-z0-9_\-\.\:\/]+$/i.test(norm);
   }
