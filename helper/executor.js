@@ -116,54 +116,20 @@ function launchApp(appName, platform = process.platform, url = null) {
   const osTable = APP_LAUNCHERS[platform] || APP_LAUNCHERS.win32;
   const launcher = osTable[normApp];
 
-  if (launcher) {
-    try {
-      const child = child_process.spawn(launcher.cmd, launcher.args, {
-        detached: true,
-        stdio: 'ignore',
-        shell: launcher.shell || false
-      });
-      child.unref();
-      return { success: true, app: normApp };
-    } catch (err) {
-      throw new Error(`Failed to launch ${normApp}: ${err.message}`);
-    }
+  if (!launcher) {
+    throw new Error(`Application "${normApp}" is not allowlisted for platform "${platform}".`);
   }
 
-  // Fallback to launch any application present on the laptop
-  if (platform === 'win32') {
-    try {
-      const child = child_process.spawn('cmd.exe', ['/c', 'start', '', normApp], {
-        detached: true,
-        stdio: 'ignore'
-      });
-      child.unref();
-      return { success: true, app: normApp };
-    } catch (err) {
-      throw new Error(`Failed to launch ${normApp}: ${err.message}`);
-    }
-  } else if (platform === 'darwin') {
-    try {
-      const child = child_process.spawn('open', ['-a', normApp], {
-        detached: true,
-        stdio: 'ignore'
-      });
-      child.unref();
-      return { success: true, app: normApp };
-    } catch (err) {
-      throw new Error(`Failed to launch ${normApp}: ${err.message}`);
-    }
-  } else {
-    try {
-      const child = child_process.spawn(normApp, [], {
-        detached: true,
-        stdio: 'ignore'
-      });
-      child.unref();
-      return { success: true, app: normApp };
-    } catch (err) {
-      throw new Error(`Failed to launch ${normApp}: ${err.message}`);
-    }
+  try {
+    const child = child_process.spawn(launcher.cmd, launcher.args, {
+      detached: true,
+      stdio: 'ignore',
+      shell: launcher.shell || false
+    });
+    child.unref();
+    return { success: true, app: normApp };
+  } catch (err) {
+    throw new Error(`Failed to launch ${normApp}: ${err.message}`);
   }
 }
 
