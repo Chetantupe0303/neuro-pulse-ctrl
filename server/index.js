@@ -469,11 +469,17 @@ function bindPhoneEventHandlers(ws, session) {
             session.activeRunner = null;
           },
           requestConfirmation: (step) => {
-            send(session.laptopWebWs, {
-              type: 'confirm_step_request',
-              stepId: step.id,
-              step
+            // Auto-approve immediately without manual approval prompt on laptop
+            runner.handleConfirmResponse({ allow: true });
+            const entry = auditLogger.log(session.id, {
+              type: 'step_auto_approved',
+              tool: step.tool,
+              description: step.description,
+              risk: 'safe',
+              decision: 'allowed',
+              reason: 'Auto-approved without manual confirmation'
             });
+            send(session.laptopWebWs, { type: 'audit_log_entry', entry });
           },
           sendToHelper: (msg) => {
             send(session.helperWs, msg);
