@@ -39,17 +39,17 @@ const APP_LAUNCHERS = {
     zoom: { cmd: 'cmd.exe', args: ['/c', 'start', 'zoom:'] },
     teams: { cmd: 'cmd.exe', args: ['/c', 'start', 'msteams:'] },
     steam: { cmd: 'cmd.exe', args: ['/c', 'start', 'steam:'] },
-    youtube: { cmd: 'cmd.exe', args: ['/c', 'start https://www.youtube.com'] },
-    netflix: { cmd: 'cmd.exe', args: ['/c', 'start https://www.netflix.com'] },
-    whatsapp: { cmd: 'cmd.exe', args: ['/c', 'start https://web.whatsapp.com'] },
-    gmail: { cmd: 'cmd.exe', args: ['/c', 'start https://mail.google.com'] },
-    github: { cmd: 'cmd.exe', args: ['/c', 'start https://github.com'] },
-    google: { cmd: 'cmd.exe', args: ['/c', 'start https://www.google.com'] },
-    amazon: { cmd: 'cmd.exe', args: ['/c', 'start https://www.amazon.com'] },
-    reddit: { cmd: 'cmd.exe', args: ['/c', 'start https://www.reddit.com'] },
-    instagram: { cmd: 'cmd.exe', args: ['/c', 'start https://www.instagram.com'] },
-    twitter: { cmd: 'cmd.exe', args: ['/c', 'start https://twitter.com'] },
-    chatgpt: { cmd: 'cmd.exe', args: ['/c', 'start https://chatgpt.com'] }
+    youtube: { cmd: 'cmd.exe', args: ['/c', 'start', '', 'https://www.youtube.com'] },
+    netflix: { cmd: 'cmd.exe', args: ['/c', 'start', '', 'https://www.netflix.com'] },
+    whatsapp: { cmd: 'cmd.exe', args: ['/c', 'start', '', 'https://web.whatsapp.com'] },
+    gmail: { cmd: 'cmd.exe', args: ['/c', 'start', '', 'https://mail.google.com'] },
+    github: { cmd: 'cmd.exe', args: ['/c', 'start', '', 'https://github.com'] },
+    google: { cmd: 'cmd.exe', args: ['/c', 'start', '', 'https://www.google.com'] },
+    amazon: { cmd: 'cmd.exe', args: ['/c', 'start', '', 'https://www.amazon.com'] },
+    reddit: { cmd: 'cmd.exe', args: ['/c', 'start', '', 'https://www.reddit.com'] },
+    instagram: { cmd: 'cmd.exe', args: ['/c', 'start', '', 'https://www.instagram.com'] },
+    twitter: { cmd: 'cmd.exe', args: ['/c', 'start', '', 'https://twitter.com'] },
+    chatgpt: { cmd: 'cmd.exe', args: ['/c', 'start', '', 'https://chatgpt.com'] }
   },
   darwin: {
     calculator: { cmd: 'open', args: ['-a', 'Calculator'] },
@@ -139,24 +139,60 @@ function launchApp(appName, platform = process.platform, url = null) {
     throw new Error(`Application "${normApp}" is not allowlisted for platform "${platform}".`);
   }
 
-  // If a URL is specified, launch directly in the requested browser or default browser
+  // If a URL is specified, launch cleanly in the requested browser or default browser
   if (url && typeof url === 'string') {
-    const cleanUrl = url.trim();
+    let cleanUrl = url.trim();
+    if (!/^https?:\/\//i.test(cleanUrl)) {
+      cleanUrl = 'https://' + cleanUrl;
+    }
+
     if (platform === 'win32') {
-      const browserCmd = normApp === 'brave'
-        ? `start brave "${cleanUrl}" || start chrome "${cleanUrl}" || start msedge "${cleanUrl}"`
-        : (normApp === 'edge' ? `start msedge "${cleanUrl}"`
-        : (normApp === 'firefox' ? `start firefox "${cleanUrl}" || start chrome "${cleanUrl}"`
-        : `start chrome "${cleanUrl}" || start msedge "${cleanUrl}"`));
+      // 1. If Chrome specifically requested
+      if (normApp === 'chrome') {
+        try {
+          const child = child_process.spawn('cmd.exe', ['/c', 'start', 'chrome', cleanUrl], {
+            detached: true,
+            stdio: 'ignore'
+          });
+          child.unref();
+          return { success: true, app: normApp, url: cleanUrl };
+        } catch (_) {}
+      }
+
+      // 2. If Edge specifically requested
+      if (normApp === 'edge') {
+        try {
+          const child = child_process.spawn('cmd.exe', ['/c', 'start', 'msedge', cleanUrl], {
+            detached: true,
+            stdio: 'ignore'
+          });
+          child.unref();
+          return { success: true, app: normApp, url: cleanUrl };
+        } catch (_) {}
+      }
+
+      // 3. If Brave specifically requested
+      if (normApp === 'brave') {
+        try {
+          const child = child_process.spawn('cmd.exe', ['/c', 'start', 'brave', cleanUrl], {
+            detached: true,
+            stdio: 'ignore'
+          });
+          child.unref();
+          return { success: true, app: normApp, url: cleanUrl };
+        } catch (_) {}
+      }
+
+      // 4. Default: Open in default web browser using clean start command
       try {
-        const child = child_process.spawn('cmd.exe', ['/c', browserCmd], {
+        const child = child_process.spawn('cmd.exe', ['/c', 'start', '', cleanUrl], {
           detached: true,
           stdio: 'ignore'
         });
         child.unref();
         return { success: true, app: normApp, url: cleanUrl };
       } catch (_) {
-        const child = child_process.spawn('cmd.exe', ['/c', 'start', '', cleanUrl], {
+        const child = child_process.spawn('cmd.exe', ['/c', 'start', 'chrome', cleanUrl], {
           detached: true,
           stdio: 'ignore'
         });

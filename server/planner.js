@@ -150,7 +150,7 @@ function generateFallbackPlan(command, osName = 'win32') {
     return {
       summary: `Open ${url} in browser`,
       steps: [
-        { id: 'step-1', tool: 'open_app', args: { app: 'brave', url }, description: `Open ${url}` }
+        { id: 'step-1', tool: 'open_app', args: { app: 'browser', url }, description: `Open ${url}` }
       ],
       reason: null
     };
@@ -184,7 +184,7 @@ function generateFallbackPlan(command, osName = 'win32') {
           return {
             summary: `Search YouTube for "${queryMatch[1].trim()}"`,
             steps: [
-              { id: 'step-1', tool: 'open_app', args: { app: 'brave', url: `https://www.youtube.com/results?search_query=${query}` }, description: `Search YouTube for ${queryMatch[1].trim()}` }
+              { id: 'step-1', tool: 'open_app', args: { app: 'browser', url: `https://www.youtube.com/results?search_query=${query}` }, description: `Search YouTube for ${queryMatch[1].trim()}` }
             ],
             reason: null
           };
@@ -193,7 +193,7 @@ function generateFallbackPlan(command, osName = 'win32') {
       return {
         summary: `Open ${site} in browser`,
         steps: [
-          { id: 'step-1', tool: 'open_app', args: { app: 'brave', url }, description: `Open ${site}` }
+          { id: 'step-1', tool: 'open_app', args: { app: 'browser', url }, description: `Open ${site}` }
         ],
         reason: null
       };
@@ -207,7 +207,7 @@ function generateFallbackPlan(command, osName = 'win32') {
     return {
       summary: `Search Google for "${searchMatch[1].trim()}"`,
       steps: [
-        { id: 'step-1', tool: 'open_app', args: { app: 'brave', url: `https://www.google.com/search?q=${query}` }, description: `Search Google` }
+        { id: 'step-1', tool: 'open_app', args: { app: 'browser', url: `https://www.google.com/search?q=${query}` }, description: `Search Google` }
       ],
       reason: null
     };
