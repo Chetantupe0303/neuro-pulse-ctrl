@@ -121,6 +121,10 @@ function createFreshSession(previous) {
 sessionManager.onSessionDisconnect = createFreshSession;
 
 const webDir = path.join(__dirname, '..', 'web');
+app.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  next();
+});
 app.use(express.json());
 app.use(express.static(webDir));
 app.get('/', (_req, res) => res.sendFile(path.join(webDir, 'index.html')));
@@ -467,19 +471,6 @@ function bindPhoneEventHandlers(ws, session) {
             send(ws, { type: 'ai_execution_stopped', ...stopped });
             send(session.laptopWebWs, { type: 'ai_execution_stopped', ...stopped });
             session.activeRunner = null;
-          },
-          requestConfirmation: (step) => {
-            // Auto-approve immediately without manual approval prompt on laptop
-            runner.handleConfirmResponse({ allow: true });
-            const entry = auditLogger.log(session.id, {
-              type: 'step_auto_approved',
-              tool: step.tool,
-              description: step.description,
-              risk: 'safe',
-              decision: 'allowed',
-              reason: 'Auto-approved without manual confirmation'
-            });
-            send(session.laptopWebWs, { type: 'audit_log_entry', entry });
           },
           sendToHelper: (msg) => {
             send(session.helperWs, msg);
