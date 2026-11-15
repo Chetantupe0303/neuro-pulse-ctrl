@@ -16,11 +16,35 @@ const ALLOWED_TOOLS = new Set([
 const ALLOWED_APPS = new Set([
   'chrome',
   'edge',
+  'firefox',
+  'brave',
+  'opera',
+  'safari',
+  'browser',
   'notepad',
   'calculator',
   'explorer',
   'finder',
-  'vscode'
+  'vscode',
+  'code',
+  'spotify',
+  'paint',
+  'mspaint',
+  'word',
+  'excel',
+  'powerpoint',
+  'steam',
+  'discord',
+  'slack',
+  'telegram',
+  'zoom',
+  'teams',
+  'vlc',
+  'settings',
+  'camera',
+  'photos',
+  'taskmgr',
+  'files'
 ]);
 
 const VALID_MODIFIERS = new Set([
@@ -98,7 +122,10 @@ function validatePlan(rawPlan) {
           };
         }
         validatedStep.args.app = app;
-        if (!step.description) validatedStep.description = `Open ${app}`;
+        if (args.url && typeof args.url === 'string') {
+          validatedStep.args.url = args.url.trim().slice(0, 500);
+        }
+        if (!step.description) validatedStep.description = args.url ? `Open ${app} to ${args.url}` : `Open ${app}`;
         break;
       }
 

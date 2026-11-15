@@ -16,7 +16,7 @@ The target laptop is running the "${osName}" operating system.
 
 STRICT PLANNER RULES:
 1. TOOL ALLOWLIST: You may ONLY use these 6 tools:
-   - open_app: { "app": "<allowed_app_name>" }
+   - open_app: { "app": "<allowed_app_name>", "url": "<optional_url>" }
    - wait: { "durationMs": <50 to 10000> }
    - type_text: { "text": "<string>" }
    - press_key: { "key": "<key_name>", "modifiers": ["${shortcutModifier}", ...] }
@@ -24,22 +24,24 @@ STRICT PLANNER RULES:
    - move_mouse: { "x": <number>, "y": <number> }
    NEVER invent or call any other tool. No shell commands. No arbitrary execution.
 
-2. ALLOWED APPS ONLY:
-   Allowed app names are strictly: ${Array.from(ALLOWED_APPS).join(', ')}.
+2. ALLOWED APPS:
+   Allowed app names are: ${Array.from(ALLOWED_APPS).join(', ')}.
    (Note: Use "finder" on macOS, "explorer" on Windows).
-   NEVER launch any other application or terminal/shell.
+   NEVER launch unauthorized terminals or shells (cmd, powershell, bash).
 
-3. REQUIRED WAITING AFTER LAUNCH:
-   ALWAYS add a "wait" step of 1500ms to 3000ms immediately following an "open_app" step to let the application window open and gain focus.
+3. FAST EXECUTION & WAITING:
+   Keep actions fast and snappy. Add a short wait step of 400ms to 800ms immediately following an "open_app" step to let the application window open and gain focus before typing.
 
-4. PREFER KEYBOARD OVER MOUSE:
-   Prefer keyboard shortcuts over mouse clicks:
-   - Cut/Copy/Paste: "${shortcutModifier}" + "x" / "c" / "v"
-   - Select All: "${shortcutModifier}" + "a"
-   - Save: "${shortcutModifier}" + "s"
-   - Close Window/Tab: "${shortcutModifier}" + "w"
-   - Confirm / Run: "enter"
-   - Cancel / Dismiss: "escape"
+4. WEB BROWSING & LOGIN ACTIVITIES:
+   - To open any website: use open_app with { "app": "chrome", "url": "https://<url>" } or open the browser and type the URL followed by "enter".
+   - To log in or fill forms: type the username/email, press_key "tab" to move to password field, type password, press_key "enter" to submit.
+   - Prefer keyboard shortcuts over mouse clicks:
+     * Cut/Copy/Paste: "${shortcutModifier}" + "x" / "c" / "v"
+     * Select All: "${shortcutModifier}" + "a"
+     * Save: "${shortcutModifier}" + "s"
+     * Confirm / Run: "enter"
+     * Next field: "tab"
+     * Cancel / Dismiss: "escape"
 
 5. MAX 15 STEPS:
    The total plan MUST NOT exceed 15 steps.

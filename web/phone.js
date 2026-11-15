@@ -1251,10 +1251,10 @@
         const amp = Math.min(20, Math.max(2, (avg / 255) * 22));
 
         // Automatic voice activity & silence detection
-        if (avg > 16) {
+        if (avg > 25) {
           speechDetected = true;
           lastSpeechTime = Date.now();
-        } else if (speechDetected && isMediaRecording && (Date.now() - lastSpeechTime > 1800)) {
+        } else if (speechDetected && isMediaRecording && (Date.now() - lastSpeechTime > 1200)) {
           speechDetected = false;
           stopMediaRecording(true);
           return;
@@ -1411,22 +1411,22 @@
       mediaRecorder.start(250);
 
       if (btnVoiceInput) btnVoiceInput.classList.add('listening');
-      if (voiceBtnText) voiceBtnText.textContent = 'Listening...';
-      if (aiSpeechMsg) aiSpeechMsg.textContent = 'Listening... Speak your command, then tap when done.';
+      if (voiceBtnText) voiceBtnText.textContent = 'Listening... (Tap to finish)';
+      if (aiSpeechMsg) aiSpeechMsg.textContent = 'Listening... Speak your command, then tap to finish.';
       setTraceState('listening', 'Listening...');
       triggerHaptic('medium');
 
       // Modulate trace visualizer with the active stream
       startAudioMonitoring(activeAudioStream);
 
-      // Background safety timeout
+      // Background safety timeout (max 10s recording)
       if (mediaRecordingTimeout) clearTimeout(mediaRecordingTimeout);
       mediaRecordingTimeout = setTimeout(() => {
         if (isMediaRecording) {
           if (aiSpeechMsg) aiSpeechMsg.textContent = 'Processing command...';
           stopMediaRecording(true);
         }
-      }, 30000);
+      }, 10000);
 
       updateMicDiagnostics();
 
